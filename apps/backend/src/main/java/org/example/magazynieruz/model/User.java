@@ -44,6 +44,12 @@ public class User implements UserDetails {
     @Setter
     private Set<Role> roles;
 
+    @Setter
+    @ManyToOne
+    @JoinColumn(name = "organisation_id")
+    @Getter
+    private Organisation organisation;
+
     @Getter
     @Setter
     private LocalDateTime createdAt;

@@ -10,7 +10,12 @@ spring:
     show-sql: true
     hibernate:
       ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
 
 security:
   jwt:
     secret-key: ${jwt.secret}
+    expiration: ${jwt.expiration}

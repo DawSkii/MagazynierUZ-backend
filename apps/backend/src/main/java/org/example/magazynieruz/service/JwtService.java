@@ -3,10 +3,9 @@ package org.example.magazynieruz.service;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
-import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.example.magazynieruz.model.User;
-import org.springframework.cglib.core.internal.Function;
+import java.util.function.Function;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
@@ -20,15 +19,13 @@ import java.util.Map;
 @Service
 public class JwtService {
 
-    @Value("${security.jwt.secret-key}")
-    private String secretKey;
+    private final long jwtExpiration;
+    private final SecretKey signInKey;
 
-    private long jwtExpiration = 5;
-
-    private SecretKey signInKey;
-
-    @PostConstruct
-    public void init() {
+    public JwtService(
+            @Value("${security.jwt.secret-key}") String secretKey,
+            @Value("${security.jwt.expiration}") long jwtExpiration) {
+        this.jwtExpiration = jwtExpiration;
         this.signInKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secretKey));
     }
 
