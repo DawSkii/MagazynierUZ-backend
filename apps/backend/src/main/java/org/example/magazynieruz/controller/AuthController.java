@@ -1,6 +1,10 @@
 package org.example.magazynieruz.controller;
 
-
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.example.magazynieruz.dto.auth.LoginRequest;
 import org.example.magazynieruz.dto.auth.LoginResponse;
@@ -17,19 +21,32 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
+@Tag(name = "Authentication", description = "User authentication and registration endpoints")
 public class AuthController {
 
     private final UserService userService;
     private final JwtService jwtService;
 
     @PostMapping("/register")
-    public ResponseEntity<Void> addNewUser(@RequestBody RegisterRequest registerRequest) {
+    @Operation(summary = "Register a new user", description = "Creates a new user account")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "User registered successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid registration data or user already exists")
+    })
+    public ResponseEntity<Void> addNewUser(
+            @Parameter(description = "User registration details", required = true) @RequestBody RegisterRequest registerRequest) {
         userService.createUser(registerRequest);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> authenticateUser(@RequestBody LoginRequest loginRequest) {
+    @Operation(summary = "Authenticate user", description = "Authenticates user credentials and returns JWT token")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Authentication successful - returns JWT token"),
+            @ApiResponse(responseCode = "401", description = "Invalid credentials")
+    })
+    public ResponseEntity<LoginResponse> authenticateUser(
+            @Parameter(description = "User login credentials", required = true) @RequestBody LoginRequest loginRequest) {
         User userDetails = userService.authenticate(loginRequest);
 
         return ResponseEntity.ok(new LoginResponse(jwtService.generateToken(userDetails)));

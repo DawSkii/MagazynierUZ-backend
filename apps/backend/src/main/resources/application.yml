@@ -19,3 +19,12 @@ security:
   jwt:
     secret-key: ${jwt.secret}
     expiration: ${jwt.expiration}
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+  show-actuator: false
