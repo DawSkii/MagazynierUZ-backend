@@ -50,7 +50,16 @@ public class ProductController {
     }
 
     @GetMapping("/{productId}")
-    public ResponseEntity<ProductResponse> getProducts(@PathVariable Long warehouseId, @PathVariable Long locationId, @PathVariable Long productId) {
+    @Operation(summary = "Get product by ID", description = "Retrieves a specific product stored in a given location within a warehouse by its ID")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Product retrieved successfully"),
+            @ApiResponse(responseCode = "403", description = "Access denied - unauthorized"),
+            @ApiResponse(responseCode = "404", description = "Warehouse, location, or product not found")
+    })
+    public ResponseEntity<ProductResponse> getProducts(
+            @Parameter(description = "Warehouse ID", required = true) @PathVariable Long warehouseId,
+            @Parameter(description = "Location ID", required = true) @PathVariable Long locationId,
+            @Parameter(description = "Product ID", required = true) @PathVariable Long productId) {
         Product product = productService.getProductById(productId);
 
         return ResponseEntity.ok(productMapper.toResponse(product));
