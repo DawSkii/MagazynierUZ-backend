@@ -2,10 +2,16 @@ package org.example.magazynieruz.service;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.example.magazynieruz.dto.location.LocationResponse;
+import org.example.magazynieruz.dto.location.PatchLocationRequest;
+import org.example.magazynieruz.mapper.LocationMapper;
 import org.example.magazynieruz.model.Location;
 import org.example.magazynieruz.model.LocationType;
+import org.example.magazynieruz.model.Product;
 import org.example.magazynieruz.model.Warehouse;
 import org.example.magazynieruz.repository.LocationRepository;
+import org.example.magazynieruz.repository.ProductRepository;
 import org.example.magazynieruz.repository.WarehouseRepository;
 import org.example.magazynieruz.security.UserContext;
 import org.springframework.stereotype.Service;
@@ -14,10 +20,13 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class LocationService {
 
     private final LocationRepository locationRepository;
     private final WarehouseRepository warehouseRepository;
+    private final ProductRepository productRepository;
+    private final LocationMapper locationMapper;
     private final UserContext userContext;
 
     public List<Location> getLocationsInWarehouse(Long warehouseId) {
@@ -44,6 +53,63 @@ public class LocationService {
                 .build();
 
         return locationRepository.save(location);
+    }
+
+    public LocationResponse getLocationById(Long warehouseId, Long locationId) {
+        verifyWarehouseAccess(warehouseId);
+
+        Location location = locationRepository.findByIdAndWarehouseId(locationId, warehouseId)
+                .orElseThrow(() -> new IllegalArgumentException("Location not found"));
+
+        return locationMapper.toResponse(location);
+    }
+
+    @Transactional
+    public void deleteLocation(Long warehouseId, Long locationId) {
+        verifyWarehouseAccess(warehouseId);
+
+        Location location = locationRepository.findByIdAndWarehouseId(locationId, warehouseId)
+                .orElseThrow(() -> new IllegalArgumentException("Location not found"));
+
+        List<Product> products = productRepository.findByLocationId(locationId)
+                .orElse(List.of());
+        
+        int productsDeleted = 0;
+        if (!products.isEmpty()) {
+            productRepository.deleteAll(products);
+            productsDeleted = products.size();
+            log.debug("Deleted {} products from location {} during cascade delete",
+                     productsDeleted, location.getLocationCode());
+        }
+
+        locationRepository.delete(location);
+        
+        log.info("Cascade deleted location {} (ID: {}) from warehouse {}: {} products removed",
+                location.getLocationCode(), locationId, warehouseId, productsDeleted);
+    }
+
+    @Transactional
+    public LocationResponse updateLocation(Long warehouseId, Long locationId, PatchLocationRequest request) {
+        verifyWarehouseAccess(warehouseId);
+
+        Location location = locationRepository.findByIdAndWarehouseId(locationId, warehouseId)
+                .orElseThrow(() -> new IllegalArgumentException("Location not found"));
+
+        request.locationCode().ifPresent(code -> {
+            if (!code.equals(location.getLocationCode()) &&
+                    locationRepository.existsByLocationCodeAndWarehouseId(code, warehouseId)) {
+                throw new IllegalArgumentException("Location " + code + " already exists");
+            }
+            location.setLocationCode(code);
+        });
+
+        request.zoneName().ifPresent(location::setZoneName);
+        request.locationType().ifPresent(location::setLocationType);
+        request.isActive().ifPresent(location::setActive);
+        request.isLocked().ifPresent(location::setLocked);
+
+        Location savedLocation = locationRepository.save(location);
+        return locationMapper.toResponse(savedLocation);
     }
 
     private Warehouse verifyWarehouseAccess(Long warehouseId) {

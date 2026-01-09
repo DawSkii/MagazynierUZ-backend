@@ -7,8 +7,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 import org.example.magazynieruz.dto.location.CreateLocationRequest;
 import org.example.magazynieruz.dto.location.LocationResponse;
+import org.example.magazynieruz.dto.location.PatchLocationRequest;
 import org.example.magazynieruz.mapper.LocationMapper;
 import org.example.magazynieruz.model.Location;
 import org.example.magazynieruz.service.LocationService;
@@ -47,6 +49,20 @@ public class LocationController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/{locationId}")
+    @Operation(summary = "Get location by ID", description = "Retrieves a single location by its ID within a warehouse")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Location retrieved successfully"),
+            @ApiResponse(responseCode = "403", description = "Access denied - unauthorized"),
+            @ApiResponse(responseCode = "404", description = "Location or warehouse not found")
+    })
+    public ResponseEntity<LocationResponse> getLocationById(
+            @Parameter(description = "Warehouse ID", required = true) @PathVariable Long warehouseId,
+            @Parameter(description = "Location ID", required = true) @PathVariable Long locationId) {
+        LocationResponse location = locationService.getLocationById(warehouseId, locationId);
+        return ResponseEntity.ok(location);
+    }
+
     @PostMapping
     @Operation(summary = "Create a new location", description = "Creates a new storage location in the specified warehouse")
     @ApiResponses(value = {
@@ -68,5 +84,36 @@ public class LocationController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(locationMapper.toResponse(created));
+    }
+
+    @PatchMapping("/{locationId}")
+    @Operation(summary = "Partially update location", description = "Updates specific fields of a location. Only provided fields will be updated.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Location updated successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid request data or duplicate location code"),
+            @ApiResponse(responseCode = "403", description = "Access denied - unauthorized"),
+            @ApiResponse(responseCode = "404", description = "Location or warehouse not found")
+    })
+    public ResponseEntity<LocationResponse> updateLocation(
+            @Parameter(description = "Warehouse ID", required = true) @PathVariable Long warehouseId,
+            @Parameter(description = "Location ID", required = true) @PathVariable Long locationId,
+            @Parameter(description = "Location update data", required = true) @Valid @RequestBody PatchLocationRequest request) {
+        LocationResponse updated = locationService.updateLocation(warehouseId, locationId, request);
+        return ResponseEntity.ok(updated);
+    }
+
+    @DeleteMapping("/{locationId}")
+    @Operation(summary = "Delete location", description = "Deletes a location by ID. Cannot delete if location has products.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Location deleted successfully"),
+            @ApiResponse(responseCode = "400", description = "Cannot delete - location has dependencies"),
+            @ApiResponse(responseCode = "403", description = "Access denied - unauthorized"),
+            @ApiResponse(responseCode = "404", description = "Location or warehouse not found")
+    })
+    public ResponseEntity<Void> deleteLocation(
+            @Parameter(description = "Warehouse ID", required = true) @PathVariable Long warehouseId,
+            @Parameter(description = "Location ID", required = true) @PathVariable Long locationId) {
+        locationService.deleteLocation(warehouseId, locationId);
+        return ResponseEntity.noContent().build();
     }
 }

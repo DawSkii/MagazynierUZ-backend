@@ -6,8 +6,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.magazynieruz.dto.product.CreateProductRequest;
+import org.example.magazynieruz.dto.product.PatchProductRequest;
 import org.example.magazynieruz.dto.product.ProductResponse;
 import org.example.magazynieruz.mapper.ProductMapper;
 import org.example.magazynieruz.model.Location;
@@ -92,5 +94,37 @@ public class ProductController {
         );
 
         return ResponseEntity.ok(productMapper.toResponse(product));
+    }
+
+    @PatchMapping("/{productId}")
+    @Operation(summary = "Partially update product", description = "Updates specific fields of a product. Only provided fields will be updated.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Product updated successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid request data or duplicate product name"),
+            @ApiResponse(responseCode = "403", description = "Access denied - unauthorized"),
+            @ApiResponse(responseCode = "404", description = "Warehouse, location, or product not found")
+    })
+    public ResponseEntity<ProductResponse> updateProduct(
+            @Parameter(description = "Warehouse ID", required = true) @PathVariable Long warehouseId,
+            @Parameter(description = "Location ID", required = true) @PathVariable Long locationId,
+            @Parameter(description = "Product ID", required = true) @PathVariable Long productId,
+            @Parameter(description = "Product update data", required = true) @Valid @RequestBody PatchProductRequest request) {
+        ProductResponse updated = productService.updateProduct(warehouseId, locationId, productId, request);
+        return ResponseEntity.ok(updated);
+    }
+
+    @DeleteMapping("/{productId}")
+    @Operation(summary = "Delete product", description = "Deletes a product by ID from a specific location")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Product deleted successfully"),
+            @ApiResponse(responseCode = "403", description = "Access denied - unauthorized"),
+            @ApiResponse(responseCode = "404", description = "Warehouse, location, or product not found")
+    })
+    public ResponseEntity<Void> deleteProduct(
+            @Parameter(description = "Warehouse ID", required = true) @PathVariable Long warehouseId,
+            @Parameter(description = "Location ID", required = true) @PathVariable Long locationId,
+            @Parameter(description = "Product ID", required = true) @PathVariable Long productId) {
+        productService.deleteProduct(warehouseId, locationId, productId);
+        return ResponseEntity.noContent().build();
     }
 }
