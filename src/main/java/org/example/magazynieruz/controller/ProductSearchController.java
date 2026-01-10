@@ -129,8 +129,15 @@ public class ProductSearchController {
                 .isAvailable(isAvailable)
                 .build();
 
+        // Validate sortBy against allowed Product fields to avoid runtime exceptions
+        String normalizedSortBy = sortBy == null ? "" : sortBy.toLowerCase();
+        List<String> allowedSortFields = List.of("quantity", "price", "name");
+        if (!allowedSortFields.contains(normalizedSortBy)) {
+            normalizedSortBy = "quantity";
+        }
+
         Sort.Direction direction = sortDirection.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC;
-        Pageable pageable = PageRequest.of(0, 10, Sort.by(direction, sortBy));
+        Pageable pageable = PageRequest.of(0, 10, Sort.by(direction, normalizedSortBy));
 
         Page<Product> productPage = productService.searchProducts(criteria, pageable);
 
