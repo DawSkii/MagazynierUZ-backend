@@ -6,8 +6,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.magazynieruz.dto.warehouse.CreateWarehouseRequest;
+import org.example.magazynieruz.dto.warehouse.PatchWarehouseRequest;
 import org.example.magazynieruz.dto.warehouse.WarehouseResponse;
 import org.example.magazynieruz.mapper.AddressMapper;
 import org.example.magazynieruz.mapper.WarehouseMapper;
@@ -74,5 +76,34 @@ public class WarehouseController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(warehouseMapper.toResponse(created));
+    }
+
+    @PatchMapping("/{id}")
+    @Operation(summary = "Partially update warehouse", description = "Updates specific fields of a warehouse. Only provided fields will be updated.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Warehouse updated successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid request data or duplicate warehouse code"),
+            @ApiResponse(responseCode = "403", description = "Access denied - unauthorized"),
+            @ApiResponse(responseCode = "404", description = "Warehouse not found")
+    })
+    public ResponseEntity<WarehouseResponse> updateWarehouse(
+            @Parameter(description = "Warehouse ID", required = true) @PathVariable Long id,
+            @Parameter(description = "Warehouse update data", required = true) @Valid @RequestBody PatchWarehouseRequest request) {
+        WarehouseResponse updated = warehouseService.updateWarehouse(id, request);
+        return ResponseEntity.ok(updated);
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete warehouse", description = "Deletes a warehouse by ID. Cannot delete if warehouse has locations.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Warehouse deleted successfully"),
+            @ApiResponse(responseCode = "400", description = "Cannot delete - warehouse has dependencies"),
+            @ApiResponse(responseCode = "403", description = "Access denied - unauthorized"),
+            @ApiResponse(responseCode = "404", description = "Warehouse not found")
+    })
+    public ResponseEntity<Void> deleteWarehouse(
+            @Parameter(description = "Warehouse ID", required = true) @PathVariable Long id) {
+        warehouseService.deleteWarehouse(id);
+        return ResponseEntity.noContent().build();
     }
 }
