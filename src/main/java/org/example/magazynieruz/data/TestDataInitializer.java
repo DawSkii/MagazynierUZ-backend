@@ -15,7 +15,7 @@ import java.util.Random;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-@Profile("lcl") // Tylko dla profilu lokalnego
+@Profile("lcl")
 public class TestDataInitializer implements CommandLineRunner {
 
     private final OrganisationRepository organisationRepository;
@@ -25,7 +25,6 @@ public class TestDataInitializer implements CommandLineRunner {
 
     private final Random random = new Random();
 
-    // Listy nazw produktów dla różnych kategorii
     private static final String[] ELECTRONICS = {
             "Laptop Dell XPS", "Monitor Samsung 27\"", "Klawiatura mechaniczna", "Mysz bezprzewodowa",
             "Słuchawki Bluetooth", "Kamera internetowa HD", "Mikrofon USB", "Hub USB-C",
@@ -161,7 +160,6 @@ public class TestDataInitializer implements CommandLineRunner {
             String variant = (i / productNames.length > 0) ? " v" + ((i / productNames.length) + 1) : "";
             String name = baseName + variant;
 
-            // Sprawdź czy produkt już istnieje
             Location location = locations.get(i % locations.size());
             if (productRepository.findAll().stream()
                     .anyMatch(p -> p.getName().equals(name) && p.getLocation().equals(location))) {
@@ -181,17 +179,14 @@ public class TestDataInitializer implements CommandLineRunner {
     }
 
     private Double generatePrice() {
-        // Ceny od 5 zł do 5000 zł
         double price = 5 + random.nextDouble() * 4995;
         return Math.round(price * 100.0) / 100.0;
     }
 
     private Integer generateQuantity() {
-        // 20% produktów ma quantity = 0 (niedostępne)
         if (random.nextInt(100) < 20) {
             return 0;
         }
-        // Pozostałe mają od 1 do 500 sztuk
         return random.nextInt(500) + 1;
     }
 }

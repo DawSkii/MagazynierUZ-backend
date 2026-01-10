@@ -78,7 +78,6 @@ public class ProductSearchController {
             @Parameter(description = "Sort direction (asc or desc)") 
             @RequestParam(defaultValue = "asc") String sortDirection) {
 
-        // Build search criteria with organisation filter
         ProductSearchCriteria criteria = ProductSearchCriteria.builder()
                 .query(query)
                 .organisationId(userContext.getCurrentOrganisationId())
@@ -91,14 +90,10 @@ public class ProductSearchController {
                 .isAvailable(isAvailable)
                 .build();
 
-        // Build pageable with sorting
         Sort.Direction direction = sortDirection.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC;
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
 
-        // Execute search
         Page<Product> productPage = productService.searchProducts(criteria, pageable);
-
-        // Map to response DTOs
         Page<ProductResponse> responsePage = productPage.map(productMapper::toResponse);
 
         return ResponseEntity.ok(responsePage);
@@ -127,7 +122,6 @@ public class ProductSearchController {
             @Parameter(description = "Filter only available products (quantity > 0)")
             @RequestParam(required = false, defaultValue = "true") Boolean isAvailable) {
 
-        // Build search criteria for filtering with organisation filter
         ProductSearchCriteria criteria = ProductSearchCriteria.builder()
                 .organisationId(userContext.getCurrentOrganisationId())
                 .warehouseId(warehouseId)
@@ -135,14 +129,11 @@ public class ProductSearchController {
                 .isAvailable(isAvailable)
                 .build();
 
-        // Build pageable with sorting - limit to 10 results
         Sort.Direction direction = sortDirection.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC;
         Pageable pageable = PageRequest.of(0, 10, Sort.by(direction, sortBy));
 
-        // Execute search
         Page<Product> productPage = productService.searchProducts(criteria, pageable);
 
-        // Map to response DTOs and convert to list
         List<ProductResponse> topProducts = productPage.getContent()
                 .stream()
                 .map(productMapper::toResponse)
