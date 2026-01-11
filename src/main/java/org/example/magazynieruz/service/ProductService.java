@@ -5,10 +5,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.magazynieruz.dto.product.PatchProductRequest;
 import org.example.magazynieruz.dto.product.ProductResponse;
+import org.example.magazynieruz.dto.product.ProductSearchCriteria;
 import org.example.magazynieruz.mapper.ProductMapper;
 import org.example.magazynieruz.model.Location;
 import org.example.magazynieruz.model.Product;
 import org.example.magazynieruz.repository.ProductRepository;
+import org.example.magazynieruz.specification.ProductSpecification;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -87,6 +91,10 @@ public class ProductService {
 
         Product savedProduct = productRepository.save(product);
         return productMapper.toResponse(savedProduct);
+    }
+
+    public Page<Product> searchProducts(ProductSearchCriteria criteria, Pageable pageable) {
+        return productRepository.findAll(ProductSpecification.withCriteria(criteria), pageable);
     }
 
 }
