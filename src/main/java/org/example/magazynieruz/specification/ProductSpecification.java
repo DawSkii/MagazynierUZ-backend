@@ -12,56 +12,73 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ProductSpecification {
-
     public static Specification<Product> withCriteria(ProductSearchCriteria criteria) {
-        return (root, query, criteriaBuilder) -> {
+        return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
             if (criteria.getQuery() != null && !criteria.getQuery().trim().isEmpty()) {
-                String searchPattern = "%" + criteria.getQuery().toLowerCase() + "%";
-                Predicate namePredicate = criteriaBuilder.like(
-                        criteriaBuilder.lower(root.get("name")), searchPattern);
-                Predicate descriptionPredicate = criteriaBuilder.like(
-                        criteriaBuilder.lower(root.get("description")), searchPattern);
-                predicates.add(criteriaBuilder.or(namePredicate, descriptionPredicate));
+                String escapedQuery = criteria.getQuery().toLowerCase()
+                        .replace("\\", "\\\\")
+                        .replace("%", "\\%")
+                        .replace("_", "\\_");
+
+                String pattern = "%" + escapedQuery + "%";
+
+                Predicate nameLike = cb.like(
+                        cb.lower(root.get("name")),
+                        pattern,
+                        '\\'
+                );
+
+                Predicate descLike = cb.like(
+                        cb.lower(cb.coalesce(root.get("description"), "")),
+                        pattern,
+                        '\\'
+                );
+
+                predicates.add(cb.or(nameLike, descLike));
             }
 
-            if (criteria.getOrganisationId() != null) {
-                Join<Product, Location> locationJoin = root.join("location");
-                Join<Location, Warehouse> warehouseJoin = locationJoin.join("warehouse");
-                predicates.add(criteriaBuilder.equal(warehouseJoin.get("organisation").get("id"), criteria.getOrganisationId()));
-            }
-
-            if (criteria.getWarehouseId() != null) {
-                Join<Product, Location> locationJoin = root.join("location");
-                Join<Location, Warehouse> warehouseJoin = locationJoin.join("warehouse");
-                predicates.add(criteriaBuilder.equal(warehouseJoin.get("id"), criteria.getWarehouseId()));
-            }
+            Join<Product, Location> locationJoin = null;
 
             if (criteria.getLocationId() != null) {
-                Join<Product, Location> locationJoin = root.join("location");
-                predicates.add(criteriaBuilder.equal(locationJoin.get("id"), criteria.getLocationId()));
+                locationJoin = root.join("location");
+                predicates.add(cb.equal(locationJoin.get("id"), criteria.getLocationId()));
+            }
+
+            if (criteria.getWarehouseId() != null || criteria.getOrganisationId() != null) {
+                if (locationJoin == null) {
+                    locationJoin = root.join("location");
+                }
+                Join<Location, Warehouse> warehouseJoin = locationJoin.join("warehouse");
+
+                if (criteria.getWarehouseId() != null) {
+                    predicates.add(cb.equal(warehouseJoin.get("id"), criteria.getWarehouseId()));
+                }
+                if (criteria.getOrganisationId() != null) {
+                    predicates.add(cb.equal(warehouseJoin.get("organisation").get("id"), criteria.getOrganisationId()));
+                }
             }
 
             if (criteria.getMinPrice() != null) {
-                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("price"), criteria.getMinPrice()));
+                predicates.add(cb.greaterThanOrEqualTo(root.get("price"), criteria.getMinPrice()));
             }
             if (criteria.getMaxPrice() != null) {
-                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("price"), criteria.getMaxPrice()));
+                predicates.add(cb.lessThanOrEqualTo(root.get("price"), criteria.getMaxPrice()));
             }
 
             if (criteria.getMinQuantity() != null) {
-                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("quantity"), criteria.getMinQuantity()));
+                predicates.add(cb.greaterThanOrEqualTo(root.get("quantity"), criteria.getMinQuantity()));
             }
             if (criteria.getMaxQuantity() != null) {
-                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("quantity"), criteria.getMaxQuantity()));
+                predicates.add(cb.lessThanOrEqualTo(root.get("quantity"), criteria.getMaxQuantity()));
             }
 
             if (criteria.getIsAvailable() != null && criteria.getIsAvailable()) {
-                predicates.add(criteriaBuilder.greaterThan(root.get("quantity"), 0));
+                predicates.add(cb.greaterThan(root.get("quantity"), 0));
             }
 
-            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+            return cb.and(predicates.toArray(new Predicate[0]));
         };
     }
 }

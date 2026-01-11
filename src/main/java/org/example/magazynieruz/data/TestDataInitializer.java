@@ -59,7 +59,6 @@ public class TestDataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        // Sprawdź czy już są produkty testowe
         if (productRepository.count() > 10) {
             log.info("Test data already exists, skipping initialization");
             return;
@@ -67,21 +66,17 @@ public class TestDataInitializer implements CommandLineRunner {
 
         log.info("Starting test data initialization...");
 
-        // Pobierz lub utwórz organizacje
         Organisation org1 = getOrCreateOrganisation("UZ", "1234567890");
         Organisation org2 = getOrCreateOrganisation("TestCorp", "9876543210");
 
-        // Utwórz magazyny
         Warehouse warehouse1 = getOrCreateWarehouse("WH-001", "Magazyn Główny", org1);
         Warehouse warehouse2 = getOrCreateWarehouse("WH-002", "Magazyn Pomocniczy", org1);
         Warehouse warehouse3 = getOrCreateWarehouse("WH-003", "Magazyn TestCorp", org2);
 
-        // Utwórz lokalizacje
         List<Location> locations2 = createLocations(warehouse2, 5);
         List<Location> locations1 = createLocations(warehouse1, 10);
         List<Location> locations3 = createLocations(warehouse3, 5);
 
-        // Dodaj produkty
         createProducts(locations1, ELECTRONICS, 30);
         createProducts(locations1, OFFICE, 40);
         createProducts(locations2, TOOLS, 25);
