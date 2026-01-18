@@ -10,6 +10,21 @@ spring:
         format_sql: true
   profiles:
     active: ${active.profile:lcl}
+  mail:
+    host: ${SMTP_HOST:smtp.gmail.com}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:magazynieruz@gmail.com}
+    password: ${SMTP_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
 security:
   jwt:
@@ -24,3 +39,33 @@ springdoc:
     operations-sorter: method
     tags-sorter: alpha
   show-actuator: false
+
+warehouse:
+  alert:
+    email:
+      enabled: ${ALERT_EMAIL_ENABLED:true}
+      from: ${ALERT_EMAIL_FROM:magazynier@gmail.com}
+      from-name: ${ALERT_EMAIL_FROM_NAME:MagazynierUZ Alert System}
+      recipients:
+        - ${ALERT_EMAIL_RECIPIENT_1:112102@g.elearn.uz.zgora.pl}
+      subject-prefix: "[MagazynierUZ Alert]"
+    low-stock:
+      threshold: ${ALERT_LOW_STOCK_THRESHOLD:20}
+      event-driven: ${ALERT_EVENT_DRIVEN:true}
+    templates:
+      low-stock-subject: "Low Stock Alert - {productName}"
+      low-stock-body: |
+        Dear Administrator,
+        
+        The following product has fallen below the alert threshold:
+        
+        Product: {productName}
+        Current Quantity: {currentQuantity}
+        Alert Threshold: {threshold}
+        Location: {locationName}
+        Warehouse: {warehouseName}
+        
+        Please take appropriate action to restock this item.
+        
+        Best regards,
+        MagazynierUZ Alert System
