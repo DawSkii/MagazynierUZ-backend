@@ -16,4 +16,5 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     Optional<Product> findByName(String name);
     Optional<List<Product>> findByLocationId(Long locationId);
     boolean existsByNameAndLocation(String name, Location location);
+    List<Product> findByLocationWarehouseOrganisationIdAndQuantityLessThan(Long organisationId, Integer quantity);
 }

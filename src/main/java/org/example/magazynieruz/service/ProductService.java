@@ -6,16 +6,20 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.magazynieruz.dto.product.PatchProductRequest;
 import org.example.magazynieruz.dto.product.ProductResponse;
 import org.example.magazynieruz.dto.product.ProductSearchCriteria;
+import org.example.magazynieruz.event.ProductQuantityChangedEvent;
 import org.example.magazynieruz.mapper.ProductMapper;
 import org.example.magazynieruz.model.Location;
 import org.example.magazynieruz.model.Product;
+import org.example.magazynieruz.model.Warehouse;
 import org.example.magazynieruz.repository.ProductRepository;
 import org.example.magazynieruz.specification.ProductSpecification;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @Slf4j
@@ -24,6 +28,7 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final ProductMapper productMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public Product createProduct(String name, Integer quantity, String description, Double price, Location location) {
@@ -77,6 +82,8 @@ public class ProductService {
             throw new IllegalArgumentException("Product with id " + productId + " not found.");
         }
 
+        Integer oldQuantity = product.getQuantity();
+
         request.name().ifPresent(name -> {
             if (!name.equals(product.getName()) &&
                     productRepository.existsByNameAndLocation(name, product.getLocation())) {
@@ -90,11 +97,47 @@ public class ProductService {
         request.quantity().ifPresent(product::setQuantity);
 
         Product savedProduct = productRepository.save(product);
+
+        if (!Objects.equals(oldQuantity, savedProduct.getQuantity())) {
+            log.debug("Product quantity changed for product ID {}: {} -> {}",
+                    savedProduct.getProductId(), oldQuantity, savedProduct.getQuantity());
+            publishQuantityChangedEvent(savedProduct, oldQuantity);
+        }
+
         return productMapper.toResponse(savedProduct);
     }
 
     public Page<Product> searchProducts(ProductSearchCriteria criteria, Pageable pageable) {
         return productRepository.findAll(ProductSpecification.withCriteria(criteria), pageable);
+    }
+
+    private void publishQuantityChangedEvent(Product product, Integer oldQuantity) {
+        try {
+            Location location = product.getLocation();
+            Warehouse warehouse = location != null ? location.getWarehouse() : null;
+            Long organisationId = warehouse != null && warehouse.getOrganisation() != null
+                    ? warehouse.getOrganisation().getId() : null;
+
+            String locationName = location != null ? location.getLocationCode() : null;
+            String warehouseName = warehouse != null ? warehouse.getWarehouseName() : null;
+
+            ProductQuantityChangedEvent event = new ProductQuantityChangedEvent(
+                    product.getProductId(),
+                    product.getName(),
+                    oldQuantity,
+                    product.getQuantity(),
+                    locationName,
+                    warehouseName,
+                    organisationId
+            );
+
+            eventPublisher.publishEvent(event);
+            log.debug("Published ProductQuantityChangedEvent for product: {} (ID: {})",
+                    product.getName(), product.getProductId());
+        } catch (Exception e) {
+            log.error("Failed to publish ProductQuantityChangedEvent for product ID {}: {}",
+                    product.getProductId(), e.getMessage(), e);
+        }
     }
 
 }
