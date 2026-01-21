@@ -9,11 +9,14 @@ import org.mapstruct.ReportingPolicy;
 
 @Mapper(
         componentModel = "spring",
-        unmappedTargetPolicy = ReportingPolicy.IGNORE
+        unmappedTargetPolicy = ReportingPolicy.IGNORE,
+        uses = {LocationMapper.class, WarehouseMapper.class}
 )
 public interface ProductMapper {
     Product toEntity(CreateProductRequest request);
 
     @Mapping(source = "productId", target = "id")
+    @Mapping(source = "location", target = "location")
+    @Mapping(source = "location.warehouse", target = "warehouse")
     ProductResponse toResponse(Product product);
 }

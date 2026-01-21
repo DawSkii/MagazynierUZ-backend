@@ -1,8 +1,10 @@
 package org.example.magazynieruz.service;
 
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.magazynieruz.dto.product.CreateProductRequest;
 import org.example.magazynieruz.dto.product.PatchProductRequest;
 import org.example.magazynieruz.dto.product.ProductResponse;
 import org.example.magazynieruz.dto.product.ProductSearchCriteria;
@@ -11,7 +13,9 @@ import org.example.magazynieruz.mapper.ProductMapper;
 import org.example.magazynieruz.model.Location;
 import org.example.magazynieruz.model.Product;
 import org.example.magazynieruz.model.Warehouse;
+import org.example.magazynieruz.repository.LocationRepository;
 import org.example.magazynieruz.repository.ProductRepository;
+import org.example.magazynieruz.repository.WarehouseRepository;
 import org.example.magazynieruz.specification.ProductSpecification;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -29,6 +33,8 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final ProductMapper productMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final LocationRepository locationRepository;
+    private final WarehouseRepository warehouseRepository;
 
     @Transactional
     public Product createProduct(String name, Integer quantity, String description, Double price, Location location) {
@@ -48,11 +54,13 @@ public class ProductService {
         return productRepository.save(product);
     }
 
+    @Transactional
     public Product getProductById(Long productId){
         return productRepository.findByProductId(productId)
                 .orElseThrow(() -> new IllegalArgumentException("Product with id " + productId + " not found."));
     }
 
+    @Transactional
     public List<Product> getProductsByWarehouseIdAndLocationId(Long warehouseId,Long locationId){
 
         return productRepository.findByLocationId(locationId)
@@ -107,6 +115,7 @@ public class ProductService {
         return productMapper.toResponse(savedProduct);
     }
 
+    @Transactional
     public Page<Product> searchProducts(ProductSearchCriteria criteria, Pageable pageable) {
         return productRepository.findAll(ProductSpecification.withCriteria(criteria), pageable);
     }
@@ -138,6 +147,114 @@ public class ProductService {
             log.error("Failed to publish ProductQuantityChangedEvent for product ID {}: {}",
                     product.getProductId(), e.getMessage(), e);
         }
+    }
+
+    // ===== ADMIN METHODS WITH ORGANISATION OVERRIDE =====
+
+    @Transactional
+    public List<ProductResponse> getProductsByLocationForOrganisation(Long organisationId, Long warehouseId, Long locationId) {
+        Warehouse warehouse = warehouseRepository.findByIdAndOrganisationId(warehouseId, organisationId)
+                .orElseThrow(() -> new EntityNotFoundException("Warehouse with id " + warehouseId + " not found for organisation " + organisationId));
+
+        Location location = locationRepository.findByIdAndWarehouseId(locationId, warehouseId)
+                .orElseThrow(() -> new EntityNotFoundException("Location with id " + locationId + " not found in warehouse " + warehouseId));
+
+        List<Product> products = productRepository.findByLocationId(locationId)
+                .orElse(List.of());
+
+        return products.stream()
+                .map(productMapper::toResponse)
+                .toList();
+    }
+
+    @Transactional
+    public ProductResponse createProductForLocation(Long organisationId, Long warehouseId, Long locationId, CreateProductRequest request) {
+        Warehouse warehouse = warehouseRepository.findByIdAndOrganisationId(warehouseId, organisationId)
+                .orElseThrow(() -> new EntityNotFoundException("Warehouse with id " + warehouseId + " not found for organisation " + organisationId));
+
+        Location location = locationRepository.findByIdAndWarehouseId(locationId, warehouseId)
+                .orElseThrow(() -> new EntityNotFoundException("Location with id " + locationId + " not found in warehouse " + warehouseId));
+
+        if (productRepository.existsByNameAndLocation(request.name(), location)) {
+            throw new IllegalArgumentException("Product with name '" + request.name() + "' in location " + location.getLocationCode() + " already exists.");
+        }
+
+        Product product = Product.builder()
+                .location(location)
+                .name(request.name())
+                .description(request.description())
+                .price(request.price())
+                .quantity(request.quantity())
+                .build();
+
+        Product savedProduct = productRepository.save(product);
+        return productMapper.toResponse(savedProduct);
+    }
+
+    @Transactional
+    public ProductResponse getProductByIdForOrganisation(Long organisationId, Long warehouseId, Long locationId, Long productId) {
+        Warehouse warehouse = warehouseRepository.findByIdAndOrganisationId(warehouseId, organisationId)
+                .orElseThrow(() -> new EntityNotFoundException("Warehouse with id " + warehouseId + " not found for organisation " + organisationId));
+
+        Location location = locationRepository.findByIdAndWarehouseId(locationId, warehouseId)
+                .orElseThrow(() -> new EntityNotFoundException("Location with id " + locationId + " not found in warehouse " + warehouseId));
+
+        Product product = productRepository.findByProductIdAndLocationId(productId, locationId)
+                .orElseThrow(() -> new EntityNotFoundException("Product with id " + productId + " not found in location " + locationId));
+
+        return productMapper.toResponse(product);
+    }
+
+    @Transactional
+    public ProductResponse updateProductForOrganisation(Long organisationId, Long warehouseId, Long locationId, Long productId, PatchProductRequest request) {
+        Warehouse warehouse = warehouseRepository.findByIdAndOrganisationId(warehouseId, organisationId)
+                .orElseThrow(() -> new EntityNotFoundException("Warehouse with id " + warehouseId + " not found for organisation " + organisationId));
+
+        Location location = locationRepository.findByIdAndWarehouseId(locationId, warehouseId)
+                .orElseThrow(() -> new EntityNotFoundException("Location with id " + locationId + " not found in warehouse " + warehouseId));
+
+        Product product = productRepository.findByProductIdAndLocationId(productId, locationId)
+                .orElseThrow(() -> new EntityNotFoundException("Product with id " + productId + " not found in location " + locationId));
+
+        Integer oldQuantity = product.getQuantity();
+
+        request.name().ifPresent(name -> {
+            if (!name.equals(product.getName()) &&
+                    productRepository.existsByNameAndLocation(name, product.getLocation())) {
+                throw new IllegalArgumentException("Product with name '" + name + "' in location " + product.getLocation().getLocationCode() + " already exists.");
+            }
+            product.setName(name);
+        });
+
+        request.description().ifPresent(product::setDescription);
+        request.price().ifPresent(product::setPrice);
+        request.quantity().ifPresent(product::setQuantity);
+
+        Product savedProduct = productRepository.save(product);
+
+        if (!Objects.equals(oldQuantity, savedProduct.getQuantity())) {
+            log.debug("Product quantity changed for product ID {}: {} -> {}",
+                    savedProduct.getProductId(), oldQuantity, savedProduct.getQuantity());
+            publishQuantityChangedEvent(savedProduct, oldQuantity);
+        }
+
+        return productMapper.toResponse(savedProduct);
+    }
+
+    @Transactional
+    public void deleteProductForOrganisation(Long organisationId, Long warehouseId, Long locationId, Long productId) {
+        Warehouse warehouse = warehouseRepository.findByIdAndOrganisationId(warehouseId, organisationId)
+                .orElseThrow(() -> new EntityNotFoundException("Warehouse with id " + warehouseId + " not found for organisation " + organisationId));
+
+        Location location = locationRepository.findByIdAndWarehouseId(locationId, warehouseId)
+                .orElseThrow(() -> new EntityNotFoundException("Location with id " + locationId + " not found in warehouse " + warehouseId));
+
+        Product product = productRepository.findByProductIdAndLocationId(productId, locationId)
+                .orElseThrow(() -> new EntityNotFoundException("Product with id " + productId + " not found in location " + locationId));
+
+        productRepository.delete(product);
+        log.info("Deleted product {} (ID: {}) from location {} for organisation {}",
+                product.getName(), productId, locationId, organisationId);
     }
 
 }
