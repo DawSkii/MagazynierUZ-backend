@@ -24,23 +24,40 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        createRoleIfNotExists("ROLE_USER");
-        createRoleIfNotExists("ROLE_ADMIN");
+        Role userRole = createRoleIfNotExists("ROLE_USER");
+        Role adminRole = createRoleIfNotExists("ROLE_ADMIN");
 
         Organisation org =  createOrganisationIfNotExists("UZ", "1234567890");
+        Organisation org2 = createOrganisationIfNotExists("TestCorp", "9876543210");
+        
         Warehouse warehouse = createWarehouseIfNotExists("XYZ123", org);
         Location location = createLocationIfNotExists("A1-01-01", warehouse);
         Product product = createProductIfNotExists(1001L, location);
 
-
-        createUserIfNotExists("MAGAZYNIER","1234",org,null);
+        // Create super admin (no organisation - can manage all organisations)
+        createUserIfNotExists("SUPERADMIN", "admin123", null, Set.of(adminRole));
+        
+        // Create regular user for UZ organisation
+        createUserIfNotExists("MAGAZYNIER", "1234", org, Set.of(userRole));
+        
+        // Create regular user for TestCorp organisation (to demonstrate organisation separation)
+        createUserIfNotExists("USER_TESTCORP", "1234", org2, Set.of(userRole));
     }
 
-    private void createRoleIfNotExists(String roleName) {
+    private Role createRoleIfNotExists(String roleName) {
         if (!roleRepository.existsByName(roleName)) {
             Role role = new Role(roleName);
-            roleRepository.save(role);
+            return roleRepository.save(role);
         }
+        // Find existing role
+        for (Role role : roleRepository.findAll()) {
+            if (role.getName().equals(roleName)) {
+                return role;
+            }
+        }
+        // Fallback - should not happen
+        Role role = new Role(roleName);
+        return roleRepository.save(role);
     }
 
     private Organisation createOrganisationIfNotExists(String organisationName, String TIN) {

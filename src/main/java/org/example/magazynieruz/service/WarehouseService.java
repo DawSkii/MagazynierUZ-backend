@@ -4,6 +4,7 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.magazynieruz.dto.warehouse.CreateWarehouseRequest;
 import org.example.magazynieruz.dto.warehouse.PatchWarehouseRequest;
 import org.example.magazynieruz.dto.warehouse.WarehouseResponse;
 import org.example.magazynieruz.mapper.AddressMapper;
@@ -131,5 +132,112 @@ public class WarehouseService {
 
         Warehouse savedWarehouse = warehouseRepository.save(warehouse);
         return warehouseMapper.toResponse(savedWarehouse);
+    }
+
+    // ===== ADMIN METHODS WITH ORGANISATION OVERRIDE =====
+
+    @Transactional
+    public List<WarehouseResponse> getWarehousesByOrganisationId(Long organisationId) {
+        List<Warehouse> warehouses = warehouseRepository.findAllByOrganisationId(organisationId);
+        return warehouses.stream()
+                .map(warehouseMapper::toResponse)
+                .toList();
+    }
+
+    @Transactional
+    public WarehouseResponse createWarehouseForOrganisation(Long organisationId, CreateWarehouseRequest request) {
+        Organisation organisation = organisationRepository.findById(organisationId)
+                .orElseThrow(() -> new EntityNotFoundException("Organisation with id " + organisationId + " not found"));
+
+        if (warehouseRepository.existsByWarehouseCodeAndOrganisationId(request.code(), organisationId)) {
+            throw new IllegalArgumentException("Warehouse " + request.code() + " already exists in this organisation.");
+        }
+
+        StructuredAddress address = request.address() != null ? addressMapper.toEntity(request.address()) : null;
+
+        Warehouse warehouse = Warehouse.builder()
+                .warehouseName(request.name())
+                .warehouseCode(request.code())
+                .description(request.description())
+                .organisation(organisation)
+                .address(address)
+                .isActive(true)
+                .build();
+
+        Warehouse savedWarehouse = warehouseRepository.save(warehouse);
+        return warehouseMapper.toResponse(savedWarehouse);
+    }
+
+    @Transactional
+    public WarehouseResponse getWarehouseByIdForOrganisation(Long organisationId, Long warehouseId) {
+        Warehouse warehouse = warehouseRepository.findByIdAndOrganisationId(warehouseId, organisationId)
+                .orElseThrow(() -> new EntityNotFoundException("Warehouse with id " + warehouseId + " not found for organisation " + organisationId));
+        return warehouseMapper.toResponse(warehouse);
+    }
+
+    @Transactional
+    public WarehouseResponse updateWarehouseForOrganisation(Long organisationId, Long warehouseId, PatchWarehouseRequest request) {
+        Warehouse warehouse = warehouseRepository.findByIdAndOrganisationId(warehouseId, organisationId)
+                .orElseThrow(() -> new EntityNotFoundException("Warehouse with id " + warehouseId + " not found for organisation " + organisationId));
+
+        if (request.name() != null) {
+            warehouse.setWarehouseName(request.name());
+        }
+
+        if (request.code() != null) {
+            if (!request.code().equals(warehouse.getWarehouseCode()) &&
+                    warehouseRepository.existsByWarehouseCodeAndOrganisationId(request.code(), organisationId)) {
+                throw new IllegalArgumentException("Warehouse " + request.code() + " already exists in this organisation.");
+            }
+            warehouse.setWarehouseCode(request.code());
+        }
+
+        request.description().ifPresent(warehouse::setDescription);
+
+        if (request.isActive() != null) {
+            warehouse.setActive(request.isActive());
+        }
+
+        request.address().ifPresent(addressRequest -> {
+            StructuredAddress address = addressMapper.toEntity(addressRequest);
+            warehouse.setAddress(address);
+        });
+
+        Warehouse savedWarehouse = warehouseRepository.save(warehouse);
+        return warehouseMapper.toResponse(savedWarehouse);
+    }
+
+    @Transactional
+    public void deleteWarehouseForOrganisation(Long organisationId, Long warehouseId) {
+        Warehouse warehouse = warehouseRepository.findByIdAndOrganisationId(warehouseId, organisationId)
+                .orElseThrow(() -> new EntityNotFoundException("Warehouse with id " + warehouseId + " not found for organisation " + organisationId));
+
+        List<Location> locations = locationRepository.findByWarehouseId(warehouseId);
+
+        int totalProductsDeleted = 0;
+        int totalLocationsDeleted = 0;
+
+        for (Location location : locations) {
+            List<Product> products = productRepository.findByLocationId(location.getId())
+                    .orElse(List.of());
+
+            if (!products.isEmpty()) {
+                productRepository.deleteAll(products);
+                totalProductsDeleted += products.size();
+                log.debug("Deleted {} products from location {} during warehouse cascade delete",
+                        products.size(), location.getLocationCode());
+            }
+        }
+
+        if (!locations.isEmpty()) {
+            locationRepository.deleteAll(locations);
+            totalLocationsDeleted = locations.size();
+            log.debug("Deleted {} locations during warehouse cascade delete", totalLocationsDeleted);
+        }
+
+        warehouseRepository.delete(warehouse);
+
+        log.info("Cascade deleted warehouse {} (ID: {}) for organisation {}: {} locations and {} products removed",
+                warehouse.getWarehouseCode(), warehouseId, organisationId, totalLocationsDeleted, totalProductsDeleted);
     }
 }
