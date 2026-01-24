@@ -1,0 +1,120 @@
+@startuml
+autonumber
+
+actor User
+participant "InventoryExportController" as IEC
+participant "InventoryExportService" as IES
+participant "WarehouseService" as WS
+participant "LocationService" as LS
+participant "ProductService" as PS
+participant "PdfGenerationService" as PGS
+participant "iText7 Library" as iText
+
+User -> IEC: POST /export\n(scope: ORGANISATION/WAREHOUSE/LOCATION)
+activate IEC
+
+IEC -> IES: getInventoryData(request, orgId)
+activate IES
+
+alt scope == ORGANISATION
+  IES -> IES: Check scope: ORGANISATION
+  
+  IES -> WS: getWarehousesByOrganisationId(orgId)
+  activate WS
+  WS --> IES: List<Warehouse>
+  deactivate WS
+  
+  loop For each warehouse
+    IES -> LS: getLocationsByWarehouseId(warehouseId)
+    activate LS
+    LS --> IES: List<Location>
+    deactivate LS
+    
+    loop For each location
+      IES -> PS: getProductsByLocationId(locationId)
+      activate PS
+      PS --> IES: List<Product>
+      deactivate PS
+      
+      IES -> IES: Add products to inventory data
+    end
+  end
+  
+else scope == WAREHOUSE
+  IES -> IES: Check scope: WAREHOUSE
+  
+  IES -> LS: getLocationsByWarehouseId(warehouseId)
+  activate LS
+  LS --> IES: List<Location>
+  deactivate LS
+  
+  loop For each location
+    IES -> PS: getProductsByLocationId(locationId)
+    activate PS
+    PS --> IES: List<Product>
+    deactivate PS
+    
+    IES -> IES: Add products to inventory data
+  end
+  
+else scope == LOCATION
+  IES -> IES: Check scope: LOCATION
+  
+  IES -> PS: getProductsByLocationId(locationId)
+  activate PS
+  PS --> IES: List<Product>
+  deactivate PS
+  
+  IES -> IES: Add products to inventory data
+end
+
+IES -> IES: Aggregate all products\ninto InventoryExportData
+IES --> IEC: InventoryExportData
+deactivate IES
+
+IEC -> PGS: generateInventoryPdf(data)
+activate PGS
+
+PGS -> PGS: Create PDF document
+PGS -> iText: Create Document, Table
+activate iText
+
+PGS -> iText: Add title and metadata
+PGS -> iText: Add table headers
+loop For each product in data
+  PGS -> iText: Add table row\n(name, description, price, quantity)
+end
+
+PGS -> iText: Add total count footer
+iText --> PGS: PDF document
+deactivate iText
+
+PGS -> PGS: Convert to byte array
+PGS --> IEC: byte[] (PDF content)
+deactivate PGS
+
+IEC -> IEC: Create ResponseEntity\nContent-Type: application/pdf\nContent-Disposition: attachment
+
+IEC --> User: PDF file download\n(200 OK)
+deactivate IEC
+
+note right of IES
+  Hierarchical data structure:
+  Organisation -> Warehouses
+  Warehouse -> Locations
+  Location -> Products
+  
+  Export scope determines
+  which level to start from
+end note
+
+note right of PGS
+  PDF generated using iText7:
+  - Title with organization info
+  - Formatted table with headers
+  - Product details in rows
+  - Total count footer
+  - Professional styling
+end note
+
+@enduml

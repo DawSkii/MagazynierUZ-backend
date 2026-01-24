@@ -1,0 +1,80 @@
+@startuml
+autonumber
+
+actor User
+participant "AuthController" as AC
+participant "UserService" as US
+participant "AuthenticationManager" as AM
+participant "JwtService" as JS
+participant "JwtAuthenticationFilter" as JAF
+participant "SecurityConfig" as SC
+participant "API Controller" as API
+
+== User Login ==
+User -> AC: POST /auth/login\n(username, password)
+activate AC
+
+AC -> US: authenticate(LoginRequest)
+activate US
+
+US -> AM: authenticate(credentials)
+activate AM
+AM --> US: authenticated User
+deactivate AM
+
+US -> JS: generateToken(User)
+activate JS
+JS --> US: JWT token
+deactivate JS
+
+US --> AC: LoginResponse
+deactivate US
+
+AC --> User: LoginResponse\n(token, username, roles)
+deactivate AC
+
+User -> User: Store JWT token
+
+== Authenticated API Request ==
+User -> API: API Request\nAuthorization: Bearer {token}
+activate API
+
+JAF -> JAF: Intercept request
+activate JAF
+
+JAF -> JS: extractUsername(token)
+activate JS
+JS --> JAF: username
+deactivate JS
+
+JAF -> JS: isTokenValid(token, username)
+activate JS
+JS --> JAF: valid = true
+deactivate JS
+
+JAF -> SC: Set Authentication\nin SecurityContext
+activate SC
+SC --> JAF: SecurityContext updated
+deactivate SC
+
+JAF --> API: Request proceeds
+deactivate JAF
+
+API -> API: Process request
+API --> User: Response
+deactivate API
+
+note right of User
+  JWT token is included in
+  Authorization header for
+  all subsequent API requests
+end note
+
+note right of JAF
+  Filter validates token
+  and sets SecurityContext
+  before request reaches
+  the controller
+end note
+
+@enduml
