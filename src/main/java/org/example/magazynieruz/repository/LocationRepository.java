@@ -7,6 +7,10 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Repository interface for Location entity data access.
+ * Provides CRUD operations and custom queries for location management.
+ */
 @Repository
 public interface LocationRepository extends JpaRepository<Location, Long> {
 

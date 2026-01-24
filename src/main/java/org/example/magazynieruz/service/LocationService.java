@@ -20,6 +20,10 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * Service for managing storage locations within warehouses.
+ * Provides CRUD operations for locations with organisation-based access control.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -31,6 +35,13 @@ public class LocationService {
     private final LocationMapper locationMapper;
     private final UserContext userContext;
 
+    /**
+     * Retrieves all locations in a specific warehouse for the current user's organisation.
+     *
+     * @param warehouseId the warehouse ID
+     * @return list of locations
+     * @throws SecurityException if access denied
+     */
     public List<Location> getLocationsInWarehouse(Long warehouseId) {
         verifyWarehouseAccess(warehouseId);
 
@@ -38,6 +49,17 @@ public class LocationService {
     }
 
 
+    /**
+     * Creates a new location in a warehouse.
+     *
+     * @param warehouseId the warehouse ID
+     * @param code the location code
+     * @param type the location type
+     * @param zone the zone name
+     * @return created location
+     * @throws IllegalArgumentException if location code already exists
+     * @throws SecurityException if access denied
+     */
     @Transactional
     public Location createLocation(Long warehouseId, String code, LocationType type, String zone) {
         Warehouse warehouse = verifyWarehouseAccess(warehouseId);
@@ -57,6 +79,15 @@ public class LocationService {
         return locationRepository.save(location);
     }
 
+    /**
+     * Retrieves a specific location by ID.
+     *
+     * @param warehouseId the warehouse ID
+     * @param locationId the location ID
+     * @return location response
+     * @throws IllegalArgumentException if location not found
+     * @throws SecurityException if access denied
+     */
     public LocationResponse getLocationById(Long warehouseId, Long locationId) {
         verifyWarehouseAccess(warehouseId);
 
@@ -66,6 +97,14 @@ public class LocationService {
         return locationMapper.toResponse(location);
     }
 
+    /**
+     * Deletes a location and all associated products (cascade delete).
+     *
+     * @param warehouseId the warehouse ID
+     * @param locationId the location ID
+     * @throws IllegalArgumentException if location not found
+     * @throws SecurityException if access denied
+     */
     @Transactional
     public void deleteLocation(Long warehouseId, Long locationId) {
         verifyWarehouseAccess(warehouseId);
@@ -90,6 +129,16 @@ public class LocationService {
                 location.getLocationCode(), locationId, warehouseId, productsDeleted);
     }
 
+    /**
+     * Updates a location with partial data.
+     *
+     * @param warehouseId the warehouse ID
+     * @param locationId the location ID
+     * @param request the update request
+     * @return updated location response
+     * @throws IllegalArgumentException if location not found or code already exists
+     * @throws SecurityException if access denied
+     */
     @Transactional
     public LocationResponse updateLocation(Long warehouseId, Long locationId, PatchLocationRequest request) {
         verifyWarehouseAccess(warehouseId);
@@ -114,6 +163,13 @@ public class LocationService {
         return locationMapper.toResponse(savedLocation);
     }
 
+    /**
+     * Verifies warehouse access for the current user's organisation.
+     *
+     * @param warehouseId the warehouse ID
+     * @return verified warehouse
+     * @throws SecurityException if access denied
+     */
     private Warehouse verifyWarehouseAccess(Long warehouseId) {
         Long orgId = userContext.getCurrentOrganisationId();
 
@@ -123,6 +179,14 @@ public class LocationService {
 
     // ===== ADMIN METHODS WITH ORGANISATION OVERRIDE =====
 
+    /**
+     * Admin method: Retrieves all locations in a warehouse for a specific organisation.
+     *
+     * @param organisationId the organisation ID
+     * @param warehouseId the warehouse ID
+     * @return list of location responses
+     * @throws EntityNotFoundException if warehouse not found
+     */
     @Transactional
     public List<LocationResponse> getLocationsByWarehouseForOrganisation(Long organisationId, Long warehouseId) {
         Warehouse warehouse = warehouseRepository.findByIdAndOrganisationId(warehouseId, organisationId)
@@ -134,6 +198,16 @@ public class LocationService {
                 .toList();
     }
 
+    /**
+     * Admin method: Creates a new location in a warehouse for a specific organisation.
+     *
+     * @param organisationId the organisation ID
+     * @param warehouseId the warehouse ID
+     * @param request the creation request
+     * @return created location response
+     * @throws EntityNotFoundException if warehouse not found
+     * @throws IllegalArgumentException if location code already exists
+     */
     @Transactional
     public LocationResponse createLocationForWarehouse(Long organisationId, Long warehouseId, CreateLocationRequest request) {
         Warehouse warehouse = warehouseRepository.findByIdAndOrganisationId(warehouseId, organisationId)
@@ -155,6 +229,15 @@ public class LocationService {
         return locationMapper.toResponse(savedLocation);
     }
 
+    /**
+     * Admin method: Retrieves a specific location by ID for an organisation.
+     *
+     * @param organisationId the organisation ID
+     * @param warehouseId the warehouse ID
+     * @param locationId the location ID
+     * @return location response
+     * @throws EntityNotFoundException if warehouse or location not found
+     */
     @Transactional
     public LocationResponse getLocationByIdForOrganisation(Long organisationId, Long warehouseId, Long locationId) {
         Warehouse warehouse = warehouseRepository.findByIdAndOrganisationId(warehouseId, organisationId)
@@ -166,6 +249,17 @@ public class LocationService {
         return locationMapper.toResponse(location);
     }
 
+    /**
+     * Admin method: Updates a location for a specific organisation.
+     *
+     * @param organisationId the organisation ID
+     * @param warehouseId the warehouse ID
+     * @param locationId the location ID
+     * @param request the update request
+     * @return updated location response
+     * @throws EntityNotFoundException if warehouse or location not found
+     * @throws IllegalArgumentException if location code already exists
+     */
     @Transactional
     public LocationResponse updateLocationForOrganisation(Long organisationId, Long warehouseId, Long locationId, PatchLocationRequest request) {
         Warehouse warehouse = warehouseRepository.findByIdAndOrganisationId(warehouseId, organisationId)
@@ -191,6 +285,14 @@ public class LocationService {
         return locationMapper.toResponse(savedLocation);
     }
 
+    /**
+     * Admin method: Deletes a location for a specific organisation (cascade delete).
+     *
+     * @param organisationId the organisation ID
+     * @param warehouseId the warehouse ID
+     * @param locationId the location ID
+     * @throws EntityNotFoundException if warehouse or location not found
+     */
     @Transactional
     public void deleteLocationForOrganisation(Long organisationId, Long warehouseId, Long locationId) {
         Warehouse warehouse = warehouseRepository.findByIdAndOrganisationId(warehouseId, organisationId)

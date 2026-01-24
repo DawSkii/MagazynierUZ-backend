@@ -24,6 +24,10 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayOutputStream;
 import java.time.format.DateTimeFormatter;
 
+/**
+ * Service for generating PDF documents.
+ * Creates formatted PDF reports for inventory exports using iText library.
+ */
 @Slf4j
 @Service
 public class PdfGenerationService {
@@ -33,6 +37,13 @@ public class PdfGenerationService {
     private static final DeviceRgb WHITE = new DeviceRgb(255, 255, 255);
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
     
+    /**
+     * Generates a PDF document from inventory export data.
+     *
+     * @param data the inventory export data
+     * @return PDF document as byte array
+     * @throws RuntimeException if PDF generation fails
+     */
     public byte[] generateInventoryPdf(InventoryExportData data) {
         log.info("Generating PDF for {} products with scope: {}", data.products().size(), data.scope());
         
@@ -62,6 +73,12 @@ public class PdfGenerationService {
         }
     }
     
+    /**
+     * Adds header section to PDF document with export metadata.
+     *
+     * @param document the PDF document
+     * @param data the export data
+     */
     private void addHeader(Document document, InventoryExportData data) {
         Paragraph title = new Paragraph("Inventory Export Report")
                 .setFontSize(20)
@@ -94,6 +111,12 @@ public class PdfGenerationService {
         document.add(new Paragraph("\n").setMarginBottom(10));
     }
     
+    /**
+     * Adds inventory table with product data to PDF document.
+     *
+     * @param document the PDF document
+     * @param data the export data
+     */
     private void addInventoryTable(Document document, InventoryExportData data) {
         float[] columnWidths = {1, 3, 2, 2, 3};
         Table table = new Table(UnitValue.createPercentArray(columnWidths))
@@ -118,6 +141,12 @@ public class PdfGenerationService {
         document.add(table);
     }
     
+    /**
+     * Adds header row to table.
+     *
+     * @param table the table
+     * @param headers header cell values
+     */
     private void addTableHeader(Table table, String... headers) {
         for (String header : headers) {
             Cell cell = new Cell()
@@ -129,6 +158,14 @@ public class PdfGenerationService {
         }
     }
     
+    /**
+     * Adds a cell to table with styling.
+     *
+     * @param table the table
+     * @param content cell content
+     * @param backgroundColor background color
+     * @param center whether to center align
+     */
     private void addTableCell(Table table, String content, DeviceRgb backgroundColor, boolean center) {
         Cell cell = new Cell()
                 .add(new Paragraph(content != null ? content : "N/A"))
@@ -142,6 +179,12 @@ public class PdfGenerationService {
         table.addCell(cell);
     }
     
+    /**
+     * Adds summary section with totals to PDF document.
+     *
+     * @param document the PDF document
+     * @param data the export data
+     */
     private void addSummary(Document document, InventoryExportData data) {
         int totalProducts = data.products().size();
         int totalQuantity = data.products().stream()
@@ -159,6 +202,9 @@ public class PdfGenerationService {
         document.add(summary);
     }
     
+    /**
+     * Event handler for adding page numbers to PDF footer.
+     */
     private static class PageFooterEventHandler implements IEventHandler {
         @Override
         public void handleEvent(Event event) {

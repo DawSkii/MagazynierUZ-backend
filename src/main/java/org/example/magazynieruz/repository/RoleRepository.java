@@ -6,6 +6,10 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
+/**
+ * Repository interface for Role entity data access.
+ * Provides CRUD operations and custom queries for role management.
+ */
 @Repository
 public interface RoleRepository extends CrudRepository<Role, Long> {
     Optional<Role> findByName(String name);

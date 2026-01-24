@@ -10,6 +10,10 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
+/**
+ * Entity representing a product stored in a warehouse location.
+ * Products track inventory with quantity, pricing, and location information.
+ */
 @Data
 @Entity
 @Table(name = "products", schema = "magazynieruz")

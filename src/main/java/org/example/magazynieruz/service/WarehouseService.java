@@ -23,6 +23,10 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * Service for managing warehouses.
+ * Provides CRUD operations for warehouses with organisation-based access control.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -36,11 +40,23 @@ public class WarehouseService {
     private final AddressMapper addressMapper;
     private final UserContext userContext;
 
+    /**
+     * Retrieves all warehouses for the current user's organisation.
+     *
+     * @return list of warehouses
+     */
     public List<Warehouse> getMyWarehouses() {
         Long orgId = userContext.getCurrentOrganisationId();
         return warehouseRepository.findAllByOrganisationId(orgId);
     }
 
+    /**
+     * Retrieves a specific warehouse by ID for the current user's organisation.
+     *
+     * @param warehouseId the warehouse ID
+     * @return warehouse entity
+     * @throws EntityNotFoundException if warehouse not found
+     */
     public Warehouse getWarehouse(Long warehouseId) {
         Long orgId = userContext.getCurrentOrganisationId();
         return warehouseRepository.findByIdAndOrganisationId(warehouseId, orgId)
@@ -48,6 +64,15 @@ public class WarehouseService {
     }
 
 
+    /**
+     * Creates a new warehouse for the current user's organisation.
+     *
+     * @param name the warehouse name
+     * @param code the warehouse code
+     * @param address the warehouse address
+     * @return created warehouse
+     * @throws IllegalArgumentException if warehouse code already exists
+     */
     @Transactional
     public Warehouse createWarehouse(String name, String code, StructuredAddress address) {
         Long orgId = userContext.getCurrentOrganisationId();
@@ -69,6 +94,11 @@ public class WarehouseService {
         return warehouseRepository.save(warehouse);
     }
 
+    /**
+     * Deletes a warehouse and all associated locations and products (cascade delete).
+     *
+     * @param warehouseId the warehouse ID
+     */
     @Transactional
     public void deleteWarehouse(Long warehouseId) {
         Warehouse warehouse = getWarehouse(warehouseId);
@@ -102,6 +132,14 @@ public class WarehouseService {
                 warehouse.getWarehouseCode(), warehouseId, totalLocationsDeleted, totalProductsDeleted);
     }
 
+    /**
+     * Updates a warehouse with partial data.
+     *
+     * @param warehouseId the warehouse ID
+     * @param request the update request
+     * @return updated warehouse response
+     * @throws IllegalArgumentException if warehouse code already exists
+     */
     @Transactional
     public WarehouseResponse updateWarehouse(Long warehouseId, PatchWarehouseRequest request) {
         Warehouse warehouse = getWarehouse(warehouseId);
@@ -136,6 +174,12 @@ public class WarehouseService {
 
     // ===== ADMIN METHODS WITH ORGANISATION OVERRIDE =====
 
+    /**
+     * Admin method: Retrieves all warehouses for a specific organisation.
+     *
+     * @param organisationId the organisation ID
+     * @return list of warehouse responses
+     */
     @Transactional
     public List<WarehouseResponse> getWarehousesByOrganisationId(Long organisationId) {
         List<Warehouse> warehouses = warehouseRepository.findAllByOrganisationId(organisationId);
@@ -144,6 +188,15 @@ public class WarehouseService {
                 .toList();
     }
 
+    /**
+     * Admin method: Creates a new warehouse for a specific organisation.
+     *
+     * @param organisationId the organisation ID
+     * @param request the creation request
+     * @return created warehouse response
+     * @throws EntityNotFoundException if organisation not found
+     * @throws IllegalArgumentException if warehouse code already exists
+     */
     @Transactional
     public WarehouseResponse createWarehouseForOrganisation(Long organisationId, CreateWarehouseRequest request) {
         Organisation organisation = organisationRepository.findById(organisationId)
@@ -168,6 +221,14 @@ public class WarehouseService {
         return warehouseMapper.toResponse(savedWarehouse);
     }
 
+    /**
+     * Admin method: Retrieves a specific warehouse by ID for an organisation.
+     *
+     * @param organisationId the organisation ID
+     * @param warehouseId the warehouse ID
+     * @return warehouse response
+     * @throws EntityNotFoundException if warehouse not found
+     */
     @Transactional
     public WarehouseResponse getWarehouseByIdForOrganisation(Long organisationId, Long warehouseId) {
         Warehouse warehouse = warehouseRepository.findByIdAndOrganisationId(warehouseId, organisationId)
@@ -175,6 +236,16 @@ public class WarehouseService {
         return warehouseMapper.toResponse(warehouse);
     }
 
+    /**
+     * Admin method: Updates a warehouse for a specific organisation.
+     *
+     * @param organisationId the organisation ID
+     * @param warehouseId the warehouse ID
+     * @param request the update request
+     * @return updated warehouse response
+     * @throws EntityNotFoundException if warehouse not found
+     * @throws IllegalArgumentException if warehouse code already exists
+     */
     @Transactional
     public WarehouseResponse updateWarehouseForOrganisation(Long organisationId, Long warehouseId, PatchWarehouseRequest request) {
         Warehouse warehouse = warehouseRepository.findByIdAndOrganisationId(warehouseId, organisationId)
@@ -207,6 +278,13 @@ public class WarehouseService {
         return warehouseMapper.toResponse(savedWarehouse);
     }
 
+    /**
+     * Admin method: Deletes a warehouse for a specific organisation (cascade delete).
+     *
+     * @param organisationId the organisation ID
+     * @param warehouseId the warehouse ID
+     * @throws EntityNotFoundException if warehouse not found
+     */
     @Transactional
     public void deleteWarehouseForOrganisation(Long organisationId, Long warehouseId) {
         Warehouse warehouse = warehouseRepository.findByIdAndOrganisationId(warehouseId, organisationId)
