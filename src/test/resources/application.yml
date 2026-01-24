@@ -1,0 +1,57 @@
+spring:
+  application:
+    name: magazynieruz-backend-test
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+        default_schema: magazynieruz
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:test-schema.sql
+  mail:
+    host: smtp.example.com
+    port: 587
+    username: test@example.com
+    password: test-password
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+
+security:
+  jwt:
+    # Base64 encoded test secret (minimum 256 bits for HS256)
+    secret-key: dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtdG9rZW4tdGVzdGluZy1wdXJwb3Nlcy1vbmx5LW1pbmltdW0tMjU2LWJpdHM=
+    expiration: 60
+
+warehouse:
+  alert:
+    email:
+      enabled: false
+      from: test@example.com
+      from-name: Test Alert System
+      recipients:
+        - test@example.com
+      subject-prefix: "[Test Alert]"
+    low-stock:
+      threshold: 20
+      event-driven: false
+    templates:
+      low-stock-subject: "Low Stock Alert - {productName}"
+      low-stock-body: "Test alert body"
+
+cors:
+  allowed-origins: "*"

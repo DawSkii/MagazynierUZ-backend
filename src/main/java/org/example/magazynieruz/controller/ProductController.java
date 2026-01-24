@@ -22,6 +22,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * REST controller for managing products within warehouse locations.
+ * Provides CRUD operations for products in the user's organisation.
+ */
 @Controller
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/warehouses/{warehouseId}/{locationId}/products")
@@ -32,6 +36,13 @@ public class ProductController {
     private final ProductMapper productMapper;
     private final LocationService locationService;
 
+    /**
+     * Retrieves all products stored in a specific location within a warehouse.
+     *
+     * @param warehouseId the warehouse ID
+     * @param locationId the location ID
+     * @return ResponseEntity containing list of products
+     */
     @GetMapping
     @Operation(summary = "Get all products in a location", description = "Retrieves all products stored in a specific location within a warehouse")
     @ApiResponses(value = {
@@ -43,14 +54,20 @@ public class ProductController {
             @Parameter(description = "Warehouse ID", required = true) @PathVariable Long warehouseId,
             @Parameter(description = "Location ID", required = true) @PathVariable Long locationId) {
         List<Product> products = productService.getProductsByWarehouseIdAndLocationId(warehouseId, locationId);
-
         List<ProductResponse> response = products.stream()
                 .map(productMapper::toResponse)
                 .toList();
-
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * Retrieves a specific product by its ID.
+     *
+     * @param warehouseId the warehouse ID
+     * @param locationId the location ID
+     * @param productId the product ID
+     * @return ResponseEntity containing the product details
+     */
     @GetMapping("/{productId}")
     @Operation(summary = "Get product by ID", description = "Retrieves a specific product stored in a given location within a warehouse by its ID")
     @ApiResponses(value = {
@@ -63,10 +80,17 @@ public class ProductController {
             @Parameter(description = "Location ID", required = true) @PathVariable Long locationId,
             @Parameter(description = "Product ID", required = true) @PathVariable Long productId) {
         Product product = productService.getProductById(productId);
-
         return ResponseEntity.ok(productMapper.toResponse(product));
     }
 
+    /**
+     * Creates a new product in the specified location.
+     *
+     * @param request the product creation request
+     * @param warehouseId the warehouse ID
+     * @param locationId the location ID
+     * @return ResponseEntity containing the created product details
+     */
     @PostMapping
     @Operation(summary = "Add a new product", description = "Creates a new product in the specified location")
     @ApiResponses(value = {
@@ -79,12 +103,10 @@ public class ProductController {
             @Parameter(description = "Product details", required = true) @RequestBody CreateProductRequest request,
             @Parameter(description = "Warehouse ID", required = true) @PathVariable Long warehouseId,
             @Parameter(description = "Location ID", required = true) @PathVariable Long locationId) {
-        
         Location location = locationService.getLocationsInWarehouse(warehouseId).stream()
                 .filter(loc -> loc.getId().equals(locationId))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Location with id " + locationId + " not found in warehouse " + warehouseId));
-        
         Product product = productService.createProduct(
                 request.name(),
                 request.quantity(),
@@ -92,10 +114,18 @@ public class ProductController {
                 request.price(),
                 location
         );
-
         return ResponseEntity.ok(productMapper.toResponse(product));
     }
 
+    /**
+     * Partially updates a product. Only provided fields will be updated.
+     *
+     * @param warehouseId the warehouse ID
+     * @param locationId the location ID
+     * @param productId the product ID
+     * @param request the product update data
+     * @return ResponseEntity containing the updated product details
+     */
     @PatchMapping("/{productId}")
     @Operation(summary = "Partially update product", description = "Updates specific fields of a product. Only provided fields will be updated.")
     @ApiResponses(value = {
@@ -113,6 +143,14 @@ public class ProductController {
         return ResponseEntity.ok(updated);
     }
 
+    /**
+     * Deletes a product by ID from a specific location.
+     *
+     * @param warehouseId the warehouse ID
+     * @param locationId the location ID
+     * @param productId the product ID
+     * @return ResponseEntity with no content
+     */
     @DeleteMapping("/{productId}")
     @Operation(summary = "Delete product", description = "Deletes a product by ID from a specific location")
     @ApiResponses(value = {

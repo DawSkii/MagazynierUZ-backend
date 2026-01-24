@@ -15,6 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Service for managing organisations.
+ * Provides CRUD operations for organisation entities.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -23,6 +27,13 @@ public class OrganisationService {
     private final OrganisationRepository organisationRepository;
     private final OrganisationMapper organisationMapper;
 
+    /**
+     * Creates a new organisation.
+     *
+     * @param request the organisation creation request
+     * @return OrganisationResponse containing created organisation details
+     * @throws IllegalArgumentException if organisation name already exists
+     */
     @Transactional
     public OrganisationResponse createOrganisation(CreateOrganisationRequest request) {
         log.info("Creating organisation with name: {}", request.name());
@@ -39,6 +50,11 @@ public class OrganisationService {
         return organisationMapper.toResponse(saved);
     }
 
+    /**
+     * Retrieves all organisations in the system.
+     *
+     * @return list of all organisations
+     */
     @Transactional(readOnly = true)
     public List<OrganisationResponse> getAllOrganisations() {
         log.info("Fetching all organisations");
@@ -47,6 +63,13 @@ public class OrganisationService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Retrieves a specific organisation by ID.
+     *
+     * @param id the organisation ID
+     * @return OrganisationResponse containing organisation details
+     * @throws EntityNotFoundException if organisation not found
+     */
     @Transactional(readOnly = true)
     public OrganisationResponse getOrganisationById(Long id) {
         log.info("Fetching organisation with ID: {}", id);
@@ -55,6 +78,14 @@ public class OrganisationService {
         return organisationMapper.toResponse(organisation);
     }
 
+    /**
+     * Updates an existing organisation.
+     *
+     * @param id the organisation ID
+     * @param request the update request
+     * @return OrganisationResponse containing updated organisation details
+     * @throws EntityNotFoundException if organisation not found
+     */
     @Transactional
     public OrganisationResponse updateOrganisation(Long id, UpdateOrganisationRequest request) {
         log.info("Updating organisation with ID: {}", id);
@@ -75,6 +106,12 @@ public class OrganisationService {
         return organisationMapper.toResponse(updated);
     }
 
+    /**
+     * Deletes an organisation from the system.
+     *
+     * @param id the organisation ID
+     * @throws EntityNotFoundException if organisation not found
+     */
     @Transactional
     public void deleteOrganisation(Long id) {
         log.info("Deleting organisation with ID: {}", id);

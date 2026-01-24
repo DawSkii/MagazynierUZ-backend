@@ -7,6 +7,11 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
+/**
+ * Entity representing a warehouse facility.
+ * Warehouses belong to organisations and contain storage locations.
+ * Each warehouse has a unique code per organisation.
+ */
 @Entity
 @Table(name = "warehouses", schema = "magazynieruz", uniqueConstraints = {
     @UniqueConstraint(

@@ -17,6 +17,10 @@ import org.springframework.stereotype.Service;
 
 import java.util.Set;
 
+/**
+ * Service for user authentication and management.
+ * Handles user registration, authentication, and deletion.
+ */
 @Service
 @Slf4j
 public class UserService {
@@ -36,6 +40,12 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
     }
 
+    /**
+     * Creates a new user with default ROLE_USER role.
+     *
+     * @param registerRequest the user registration request
+     * @throws IllegalArgumentException if username already exists
+     */
     public void createUser(RegisterRequest registerRequest) {
         if (userRepository.findByUsername(registerRequest.username()).isPresent()) {
             log.error("Username is already in use");
@@ -52,6 +62,12 @@ public class UserService {
         userRepository.save(user);
     }
 
+    /**
+     * Deletes a user from the system.
+     *
+     * @param userId the user ID
+     * @throws EntityNotFoundException if user not found
+     */
     public void deleteUser(Long userId) {
         User userToDelete = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + userId));
@@ -59,6 +75,14 @@ public class UserService {
         userRepository.delete(userToDelete);
     }
 
+    /**
+     * Authenticates a user with credentials.
+     *
+     * @param request the login request containing username and password
+     * @return authenticated user
+     * @throws BadCredentialsException if credentials are invalid
+     * @throws EntityNotFoundException if user not found
+     */
     public User authenticate(LoginRequest request) {
         try {
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(

@@ -21,6 +21,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Service for administrative user management operations.
+ * Provides CRUD operations for users that can only be performed by administrators.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -31,35 +35,40 @@ public class AdminUserService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
 
+    /**
+     * Creates a new user with specified organisation and roles.
+     *
+     * @param request the user creation request containing username, password, organisation, and roles
+     * @return UserResponse containing the created user details
+     * @throws IllegalArgumentException if username already exists
+     * @throws EntityNotFoundException if organisation not found
+     */
     @Transactional
     public UserResponse createUser(AdminCreateUserRequest request) {
         log.info("Admin creating user: {}", request.username());
-
         if (userRepository.existsByUsername(request.username())) {
             throw new IllegalArgumentException("User with username " + request.username() + " already exists");
         }
-
         User user = new User();
         user.setUsername(request.username());
         user.setPassword(passwordEncoder.encode(request.password()));
-
-        // Assign organisation if provided
         if (request.organisationId() != null) {
             Organisation organisation = organisationRepository.findById(request.organisationId())
                     .orElseThrow(() -> new EntityNotFoundException("Organisation not found with ID: " + request.organisationId()));
             user.setOrganisation(organisation);
         }
-
-        // Assign roles
         Set<Role> roles = getRolesFromNames(request.roleNames());
         user.setRoles(roles);
-
         User savedUser = userRepository.save(user);
         log.info("User created with ID: {}", savedUser.getUserId());
-
         return mapToResponse(savedUser);
     }
 
+    /**
+     * Retrieves all users in the system.
+     *
+     * @return list of all users
+     */
     @Transactional(readOnly = true)
     public List<UserResponse> getAllUsers() {
         log.info("Admin fetching all users");
@@ -69,6 +78,13 @@ public class AdminUserService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Retrieves a specific user by ID.
+     *
+     * @param id the user ID
+     * @return UserResponse containing user details
+     * @throws EntityNotFoundException if user not found
+     */
     @Transactional(readOnly = true)
     public UserResponse getUserById(Long id) {
         log.info("Admin fetching user with ID: {}", id);
@@ -77,46 +93,50 @@ public class AdminUserService {
         return mapToResponse(user);
     }
 
+    /**
+     * Updates an existing user's details including username, password, organisation, and roles.
+     *
+     * @param id the user ID
+     * @param request the update request with fields to modify
+     * @return UserResponse containing updated user details
+     * @throws EntityNotFoundException if user or organisation not found
+     * @throws IllegalArgumentException if new username is already taken
+     */
     @Transactional
     public UserResponse updateUser(Long id, AdminUpdateUserRequest request) {
         log.info("Admin updating user with ID: {}", id);
-
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + id));
-
-        // Update username if provided
         if (request.username() != null && !request.username().isBlank()) {
-            if (!user.getUsername().equals(request.username()) && 
+            if (!user.getUsername().equals(request.username()) &&
                 userRepository.existsByUsername(request.username())) {
                 throw new IllegalArgumentException("Username " + request.username() + " is already taken");
             }
             user.setUsername(request.username());
         }
-
-        // Update password if provided
         if (request.password() != null && !request.password().isBlank()) {
             user.setPassword(passwordEncoder.encode(request.password()));
         }
-
-        // Update organisation if provided (null means remove organisation)
         if (request.organisationId() != null) {
             Organisation organisation = organisationRepository.findById(request.organisationId())
                     .orElseThrow(() -> new EntityNotFoundException("Organisation not found with ID: " + request.organisationId()));
             user.setOrganisation(organisation);
         }
-
-        // Update roles if provided
         if (request.roleNames() != null && !request.roleNames().isEmpty()) {
             Set<Role> roles = getRolesFromNames(request.roleNames());
             user.setRoles(roles);
         }
-
         User updatedUser = userRepository.save(user);
         log.info("User updated with ID: {}", updatedUser.getUserId());
-
         return mapToResponse(updatedUser);
     }
 
+    /**
+     * Deletes a user from the system.
+     *
+     * @param id the user ID
+     * @throws EntityNotFoundException if user not found
+     */
     @Transactional
     public void deleteUser(Long id) {
         log.info("Admin deleting user with ID: {}", id);
@@ -128,6 +148,14 @@ public class AdminUserService {
         log.info("User deleted with ID: {}", id);
     }
 
+    /**
+     * Assigns a user to a specific organisation.
+     *
+     * @param userId the user ID
+     * @param organisationId the organisation ID
+     * @return UserResponse containing updated user details
+     * @throws EntityNotFoundException if user or organisation not found
+     */
     @Transactional
     public UserResponse assignUserToOrganisation(Long userId, Long organisationId) {
         log.info("Admin assigning user {} to organisation {}", userId, organisationId);
@@ -162,17 +190,20 @@ public class AdminUserService {
         return roles;
     }
 
+    /**
+     * Maps User entity to UserResponse DTO.
+     *
+     * @param user the user entity
+     * @return UserResponse DTO
+     */
     private UserResponse mapToResponse(User user) {
         Long orgId = user.getOrganisation() != null ? user.getOrganisation().getId() : null;
         String orgName = user.getOrganisation() != null ? user.getOrganisation().getName() : null;
-        
-        // Get roles from authorities since there's no direct getter
         Set<String> roleNames = user.getAuthorities() != null
                 ? user.getAuthorities().stream()
                     .map(auth -> auth.getAuthority())
                     .collect(Collectors.toSet())
                 : Set.of();
-
         return new UserResponse(
                 user.getUserId(),
                 user.getUsername(),

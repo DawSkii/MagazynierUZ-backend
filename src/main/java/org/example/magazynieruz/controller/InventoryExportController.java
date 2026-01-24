@@ -25,6 +25,10 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+/**
+ * REST controller for handling inventory data export operations.
+ * Provides endpoints for exporting inventory data in various formats (PDF).
+ */
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/exports")
@@ -39,9 +43,18 @@ public class InventoryExportController {
     
     private static final DateTimeFormatter FILENAME_DATE_FORMAT = DateTimeFormatter.ofPattern("ddMMyyyy_HHmmss");
     
+    /**
+     * Exports inventory data to PDF format based on specified scope.
+     * Supports export at organisation, warehouse, or location level.
+     *
+     * @param scope the export scope (ORGANISATION, WAREHOUSE, or LOCATION)
+     * @param warehouseId the warehouse ID (required when scope is WAREHOUSE or LOCATION)
+     * @param locationId the location ID (required when scope is LOCATION)
+     * @return ResponseEntity containing the generated PDF as byte array
+     */
     @GetMapping("/inventory/pdf")
     @Operation(
-        summary = "Export inventory to PDF", 
+        summary = "Export inventory to PDF",
         description = "Exports warehouse inventory data to PDF format. Supports export at organisation, warehouse, or location level."
     )
     @ApiResponses(value = {
@@ -60,17 +73,13 @@ public class InventoryExportController {
             @Parameter(description = "Location ID (required when scope is LOCATION)", example = "5")
             @RequestParam(required = false) Long locationId
     ) {
-        log.info("Received inventory export request - scope: {}, warehouseId: {}, locationId: {}", 
+        log.info("Received inventory export request - scope: {}, warehouseId: {}, locationId: {}",
                 scope, warehouseId, locationId);
         
         Long organisationId = userContext.getCurrentOrganisationId();
-        
         InventoryExportRequest request = new InventoryExportRequest(scope, warehouseId, locationId);
-        
         InventoryExportData inventoryData = inventoryExportService.getInventoryData(request, organisationId);
-        
         byte[] pdfBytes = pdfGenerationService.generateInventoryPdf(inventoryData);
-        
         String filename = generateFilename(scope, warehouseId, locationId);
         
         HttpHeaders headers = new HttpHeaders();
@@ -85,9 +94,16 @@ public class InventoryExportController {
                 .body(pdfBytes);
     }
     
+    /**
+     * Generates a filename for the PDF export based on scope and identifiers.
+     *
+     * @param scope the export scope
+     * @param warehouseId the warehouse ID
+     * @param locationId the location ID
+     * @return the generated filename with timestamp
+     */
     private String generateFilename(ExportScope scope, Long warehouseId, Long locationId) {
         String timestamp = LocalDateTime.now().format(FILENAME_DATE_FORMAT);
-        
         return switch (scope) {
             case ORGANISATION -> "inventory_organisation_" + timestamp + ".pdf";
             case WAREHOUSE -> "inventory_warehouse_" + warehouseId + "_" + timestamp + ".pdf";

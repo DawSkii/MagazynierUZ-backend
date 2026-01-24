@@ -18,6 +18,10 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * REST controller for user-related operations.
+ * Provides endpoints for authenticated users to access their own information.
+ */
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
@@ -25,6 +29,12 @@ import java.util.stream.Collectors;
 @SecurityRequirement(name = "bearer-jwt")
 public class UserController {
 
+    /**
+     * Retrieves the roles of the currently authenticated user.
+     *
+     * @param authentication the authentication object containing user details
+     * @return ResponseEntity containing user role information
+     */
     @GetMapping("/role")
     @Operation(summary = "Get current user's role", description = "Returns the roles of the currently authenticated user")
     @ApiResponses(value = {
@@ -35,24 +45,18 @@ public class UserController {
         if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(401).build();
         }
-
         Object principal = authentication.getPrincipal();
-        
         if (principal instanceof User user) {
-
             Set<String> roles = authentication.getAuthorities().stream()
                     .map(GrantedAuthority::getAuthority)
                     .collect(Collectors.toSet());
-            
             UserRoleResponse response = new UserRoleResponse(
                     user.getUserId(),
                     user.getUsername(),
                     roles
             );
-            
             return ResponseEntity.ok(response);
         }
-        
         return ResponseEntity.status(401).build();
     }
 }

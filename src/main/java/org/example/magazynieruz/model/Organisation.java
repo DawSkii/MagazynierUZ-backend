@@ -3,6 +3,10 @@ package org.example.magazynieruz.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+/**
+ * Entity representing an organisation (company/business).
+ * Organisations own warehouses and have associated users.
+ */
 @Entity
 @Table(name = "organisations", schema = "magazynieruz")
 @Getter

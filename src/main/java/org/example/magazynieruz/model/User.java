@@ -16,6 +16,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Entity representing a system user with Spring Security integration.
+ * Implements UserDetails for authentication and authorization.
+ */
 @Entity
 @NoArgsConstructor
 @Table(name = "users", schema ="magazynieruz")
@@ -77,6 +81,10 @@ public class User implements UserDetails {
         this.password = password;
     }
 
+    /**
+     * JPA lifecycle callback executed before entity persistence.
+     * Sets creation and update timestamps.
+     */
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -84,6 +92,10 @@ public class User implements UserDetails {
         lastLogin = LocalDateTime.now();
     }
 
+    /**
+     * JPA lifecycle callback executed before entity update.
+     * Updates the timestamp.
+     */
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();

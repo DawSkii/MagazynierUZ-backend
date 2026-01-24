@@ -25,6 +25,10 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Service for managing products in warehouse locations.
+ * Provides CRUD operations and search functionality for products with event publishing.
+ */
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -36,13 +40,22 @@ public class ProductService {
     private final LocationRepository locationRepository;
     private final WarehouseRepository warehouseRepository;
 
+    /**
+     * Creates a new product in a specified location.
+     *
+     * @param name the product name
+     * @param quantity the initial quantity
+     * @param description the product description
+     * @param price the product price
+     * @param location the storage location
+     * @return created product
+     * @throws IllegalArgumentException if product name already exists in location
+     */
     @Transactional
     public Product createProduct(String name, Integer quantity, String description, Double price, Location location) {
-
         if(productRepository.existsByNameAndLocation(name, location)){
             throw new IllegalArgumentException("Product with name '" + name + "' in location " + location.getLocationCode() + " already exists.");
         }
-
         Product product = Product.builder()
             .location(location)
             .name(name)
@@ -50,25 +63,46 @@ public class ProductService {
             .price(price)
             .quantity(quantity)
             .build();
-
         return productRepository.save(product);
     }
 
+    /**
+     * Retrieves a product by its ID.
+     *
+     * @param productId the product ID
+     * @return product entity
+     * @throws IllegalArgumentException if product not found
+     */
     @Transactional
     public Product getProductById(Long productId){
         return productRepository.findByProductId(productId)
                 .orElseThrow(() -> new IllegalArgumentException("Product with id " + productId + " not found."));
     }
 
+    /**
+     * Retrieves all products in a specific location within a warehouse.
+     *
+     * @param warehouseId the warehouse ID
+     * @param locationId the location ID
+     * @return list of products
+     * @throws IllegalArgumentException if no products found or warehouse mismatch
+     */
     @Transactional
     public List<Product> getProductsByWarehouseIdAndLocationId(Long warehouseId,Long locationId){
-
         return productRepository.findByLocationId(locationId)
                 .filter(products -> products.stream()
                         .allMatch(product -> product.getLocation().getWarehouse().getId().equals(warehouseId)))
                 .orElseThrow(() -> new IllegalArgumentException("There are no products in location " + locationId + "."));
     }
 
+    /**
+     * Deletes a product from a specific location.
+     *
+     * @param warehouseId the warehouse ID
+     * @param locationId the location ID
+     * @param productId the product ID
+     * @throws IllegalArgumentException if product not found or warehouse mismatch
+     */
     @Transactional
     public void deleteProduct(Long warehouseId, Long locationId, Long productId) {
         Product product = productRepository.findByProductIdAndLocationId(productId, locationId)
@@ -81,6 +115,16 @@ public class ProductService {
         productRepository.delete(product);
     }
 
+    /**
+     * Updates a product with partial data and publishes quantity change event if applicable.
+     *
+     * @param warehouseId the warehouse ID
+     * @param locationId the location ID
+     * @param productId the product ID
+     * @param request the update request
+     * @return updated product response
+     * @throws IllegalArgumentException if product not found or name already exists
+     */
     @Transactional
     public ProductResponse updateProduct(Long warehouseId, Long locationId, Long productId, PatchProductRequest request) {
         Product product = productRepository.findByProductIdAndLocationId(productId, locationId)
@@ -115,11 +159,24 @@ public class ProductService {
         return productMapper.toResponse(savedProduct);
     }
 
+    /**
+     * Searches products based on criteria with pagination and sorting.
+     *
+     * @param criteria the search criteria
+     * @param pageable pagination and sorting parameters
+     * @return page of products matching criteria
+     */
     @Transactional
     public Page<Product> searchProducts(ProductSearchCriteria criteria, Pageable pageable) {
         return productRepository.findAll(ProductSpecification.withCriteria(criteria), pageable);
     }
 
+    /**
+     * Publishes a product quantity changed event for monitoring and alerting.
+     *
+     * @param product the product entity
+     * @param oldQuantity the previous quantity
+     */
     private void publishQuantityChangedEvent(Product product, Integer oldQuantity) {
         try {
             Location location = product.getLocation();
@@ -151,6 +208,15 @@ public class ProductService {
 
     // ===== ADMIN METHODS WITH ORGANISATION OVERRIDE =====
 
+    /**
+     * Admin method: Retrieves all products in a location for a specific organisation.
+     *
+     * @param organisationId the organisation ID
+     * @param warehouseId the warehouse ID
+     * @param locationId the location ID
+     * @return list of product responses
+     * @throws EntityNotFoundException if warehouse or location not found
+     */
     @Transactional
     public List<ProductResponse> getProductsByLocationForOrganisation(Long organisationId, Long warehouseId, Long locationId) {
         Warehouse warehouse = warehouseRepository.findByIdAndOrganisationId(warehouseId, organisationId)
@@ -167,6 +233,17 @@ public class ProductService {
                 .toList();
     }
 
+    /**
+     * Admin method: Creates a new product in a location for a specific organisation.
+     *
+     * @param organisationId the organisation ID
+     * @param warehouseId the warehouse ID
+     * @param locationId the location ID
+     * @param request the creation request
+     * @return created product response
+     * @throws EntityNotFoundException if warehouse or location not found
+     * @throws IllegalArgumentException if product name already exists
+     */
     @Transactional
     public ProductResponse createProductForLocation(Long organisationId, Long warehouseId, Long locationId, CreateProductRequest request) {
         Warehouse warehouse = warehouseRepository.findByIdAndOrganisationId(warehouseId, organisationId)
@@ -191,6 +268,16 @@ public class ProductService {
         return productMapper.toResponse(savedProduct);
     }
 
+    /**
+     * Admin method: Retrieves a specific product by ID for an organisation.
+     *
+     * @param organisationId the organisation ID
+     * @param warehouseId the warehouse ID
+     * @param locationId the location ID
+     * @param productId the product ID
+     * @return product response
+     * @throws EntityNotFoundException if warehouse, location, or product not found
+     */
     @Transactional
     public ProductResponse getProductByIdForOrganisation(Long organisationId, Long warehouseId, Long locationId, Long productId) {
         Warehouse warehouse = warehouseRepository.findByIdAndOrganisationId(warehouseId, organisationId)
@@ -205,6 +292,18 @@ public class ProductService {
         return productMapper.toResponse(product);
     }
 
+    /**
+     * Admin method: Updates a product for a specific organisation.
+     *
+     * @param organisationId the organisation ID
+     * @param warehouseId the warehouse ID
+     * @param locationId the location ID
+     * @param productId the product ID
+     * @param request the update request
+     * @return updated product response
+     * @throws EntityNotFoundException if warehouse, location, or product not found
+     * @throws IllegalArgumentException if product name already exists
+     */
     @Transactional
     public ProductResponse updateProductForOrganisation(Long organisationId, Long warehouseId, Long locationId, Long productId, PatchProductRequest request) {
         Warehouse warehouse = warehouseRepository.findByIdAndOrganisationId(warehouseId, organisationId)
@@ -241,6 +340,15 @@ public class ProductService {
         return productMapper.toResponse(savedProduct);
     }
 
+    /**
+     * Admin method: Deletes a product for a specific organisation.
+     *
+     * @param organisationId the organisation ID
+     * @param warehouseId the warehouse ID
+     * @param locationId the location ID
+     * @param productId the product ID
+     * @throws EntityNotFoundException if warehouse, location, or product not found
+     */
     @Transactional
     public void deleteProductForOrganisation(Long organisationId, Long warehouseId, Long locationId, Long productId) {
         Warehouse warehouse = warehouseRepository.findByIdAndOrganisationId(warehouseId, organisationId)

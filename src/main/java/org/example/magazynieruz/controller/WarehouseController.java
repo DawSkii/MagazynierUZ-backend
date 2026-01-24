@@ -22,6 +22,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * REST controller for managing warehouses.
+ * Provides CRUD operations for warehouses in the user's organisation.
+ */
 @RestController
 @RequestMapping("/api/v1/warehouses")
 @RequiredArgsConstructor
@@ -33,6 +37,11 @@ public class WarehouseController {
     private final WarehouseMapper warehouseMapper;
     private final AddressMapper addressMapper;
 
+    /**
+     * Retrieves all warehouses belonging to the authenticated user's organization.
+     *
+     * @return ResponseEntity containing list of warehouses
+     */
     @GetMapping
     @Operation(summary = "Get user's warehouses", description = "Retrieves all warehouses belonging to the authenticated user's organization")
     @ApiResponses(value = {
@@ -41,14 +50,18 @@ public class WarehouseController {
     })
     public ResponseEntity<List<WarehouseResponse>> getMyWarehouses() {
         List<Warehouse> warehouses = warehouseService.getMyWarehouses();
-
         List<WarehouseResponse> response = warehouses.stream()
                 .map(warehouseMapper::toResponse)
                 .collect(Collectors.toList());
-
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * Retrieves a specific warehouse by its ID.
+     *
+     * @param id the warehouse ID
+     * @return ResponseEntity containing the warehouse details
+     */
     @GetMapping("/{id}")
     @Operation(summary = "Get warehouse by ID", description = "Retrieves a specific warehouse by its ID")
     @ApiResponses(value = {
@@ -62,6 +75,12 @@ public class WarehouseController {
         return ResponseEntity.ok(warehouseMapper.toResponse(warehouse));
     }
 
+    /**
+     * Creates a new warehouse for the authenticated user's organization.
+     *
+     * @param request the warehouse creation request
+     * @return ResponseEntity containing the created warehouse details
+     */
     @PostMapping
     @Operation(summary = "Create a new warehouse", description = "Creates a new warehouse for the authenticated user's organization")
     @ApiResponses(value = {
@@ -71,13 +90,18 @@ public class WarehouseController {
     })
     public ResponseEntity<WarehouseResponse> createWarehouse(
             @Parameter(description = "Warehouse details", required = true) @RequestBody CreateWarehouseRequest request) {
-
         Warehouse created = warehouseService.createWarehouse(request.name(), request.code(), addressMapper.toEntity(request.address()));
-
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(warehouseMapper.toResponse(created));
     }
 
+    /**
+     * Partially updates a warehouse. Only provided fields will be updated.
+     *
+     * @param id the warehouse ID
+     * @param request the warehouse update data
+     * @return ResponseEntity containing the updated warehouse details
+     */
     @PatchMapping("/{id}")
     @Operation(summary = "Partially update warehouse", description = "Updates specific fields of a warehouse. Only provided fields will be updated.")
     @ApiResponses(value = {
@@ -93,6 +117,12 @@ public class WarehouseController {
         return ResponseEntity.ok(updated);
     }
 
+    /**
+     * Deletes a warehouse by ID. Cannot delete if warehouse has locations.
+     *
+     * @param id the warehouse ID
+     * @return ResponseEntity with no content
+     */
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete warehouse", description = "Deletes a warehouse by ID. Cannot delete if warehouse has locations.")
     @ApiResponses(value = {

@@ -23,6 +23,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * REST controller for advanced product search and filtering.
+ * Provides endpoints for searching products with pagination, sorting, and filtering capabilities.
+ */
 @RestController
 @RequestMapping("/api/v1/products")
 @RequiredArgsConstructor
@@ -34,6 +38,23 @@ public class ProductSearchController {
     private final ProductMapper productMapper;
     private final UserContext userContext;
 
+    /**
+     * Searches and filters products with pagination and sorting.
+     *
+     * @param query search query (searches in name and description)
+     * @param warehouseId filter by warehouse ID
+     * @param locationId filter by location ID
+     * @param minPrice minimum price filter
+     * @param maxPrice maximum price filter
+     * @param minQuantity minimum quantity filter
+     * @param maxQuantity maximum quantity filter
+     * @param isAvailable filter only available products (quantity > 0)
+     * @param page page number (0-indexed)
+     * @param size page size
+     * @param sortBy sort by field
+     * @param sortDirection sort direction (asc or desc)
+     * @return ResponseEntity containing paginated product results
+     */
     @GetMapping("/search")
     @Operation(summary = "Search products", description = "Search and filter products with pagination and sorting")
     @ApiResponses(value = {
@@ -42,42 +63,41 @@ public class ProductSearchController {
             @ApiResponse(responseCode = "403", description = "Access denied - unauthorized")
     })
     public ResponseEntity<Page<ProductResponse>> searchProducts(
-            @Parameter(description = "Search query (searches in name and description)") 
+            @Parameter(description = "Search query (searches in name and description)")
             @RequestParam(required = false) String query,
             
-            @Parameter(description = "Filter by warehouse ID") 
+            @Parameter(description = "Filter by warehouse ID")
             @RequestParam(required = false) Long warehouseId,
             
-            @Parameter(description = "Filter by location ID") 
+            @Parameter(description = "Filter by location ID")
             @RequestParam(required = false) Long locationId,
             
-            @Parameter(description = "Minimum price") 
+            @Parameter(description = "Minimum price")
             @RequestParam(required = false) Double minPrice,
             
-            @Parameter(description = "Maximum price") 
+            @Parameter(description = "Maximum price")
             @RequestParam(required = false) Double maxPrice,
             
-            @Parameter(description = "Minimum quantity") 
+            @Parameter(description = "Minimum quantity")
             @RequestParam(required = false) Integer minQuantity,
             
-            @Parameter(description = "Maximum quantity") 
+            @Parameter(description = "Maximum quantity")
             @RequestParam(required = false) Integer maxQuantity,
             
-            @Parameter(description = "Filter only available products (quantity > 0)") 
+            @Parameter(description = "Filter only available products (quantity > 0)")
             @RequestParam(required = false) Boolean isAvailable,
             
-            @Parameter(description = "Page number (0-indexed)") 
+            @Parameter(description = "Page number (0-indexed)")
             @RequestParam(defaultValue = "0") int page,
             
-            @Parameter(description = "Page size") 
+            @Parameter(description = "Page size")
             @RequestParam(defaultValue = "20") int size,
             
-            @Parameter(description = "Sort by field (e.g., 'name', 'price', 'quantity')") 
+            @Parameter(description = "Sort by field (e.g., 'name', 'price', 'quantity')")
             @RequestParam(defaultValue = "name") String sortBy,
             
-            @Parameter(description = "Sort direction (asc or desc)") 
+            @Parameter(description = "Sort direction (asc or desc)")
             @RequestParam(defaultValue = "asc") String sortDirection) {
-
         ProductSearchCriteria criteria = ProductSearchCriteria.builder()
                 .query(query)
                 .organisationId(userContext.getCurrentOrganisationId())
@@ -89,16 +109,23 @@ public class ProductSearchController {
                 .maxQuantity(maxQuantity)
                 .isAvailable(isAvailable)
                 .build();
-
         Sort.Direction direction = sortDirection.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC;
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
-
         Page<Product> productPage = productService.searchProducts(criteria, pageable);
         Page<ProductResponse> responsePage = productPage.map(productMapper::toResponse);
-
         return ResponseEntity.ok(responsePage);
     }
 
+    /**
+     * Retrieves top 10 products based on specified criteria and sorting.
+     *
+     * @param sortBy sort by field (e.g., 'quantity', 'price', 'name')
+     * @param sortDirection sort direction (asc or desc)
+     * @param warehouseId filter by warehouse ID
+     * @param locationId filter by location ID
+     * @param isAvailable filter only available products
+     * @return ResponseEntity containing list of top 10 products
+     */
     @GetMapping("/top10")
     @Operation(summary = "Get top 10 products", description = "Retrieve top 10 products based on specified criteria")
     @ApiResponses(value = {
@@ -121,31 +148,24 @@ public class ProductSearchController {
             
             @Parameter(description = "Filter only available products (quantity > 0)")
             @RequestParam(required = false, defaultValue = "true") Boolean isAvailable) {
-
         ProductSearchCriteria criteria = ProductSearchCriteria.builder()
                 .organisationId(userContext.getCurrentOrganisationId())
                 .warehouseId(warehouseId)
                 .locationId(locationId)
                 .isAvailable(isAvailable)
                 .build();
-
-        // Validate sortBy against allowed Product fields to avoid runtime exceptions
         String normalizedSortBy = sortBy == null ? "" : sortBy.toLowerCase();
         List<String> allowedSortFields = List.of("quantity", "price", "name");
         if (!allowedSortFields.contains(normalizedSortBy)) {
             normalizedSortBy = "quantity";
         }
-
         Sort.Direction direction = sortDirection.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC;
         Pageable pageable = PageRequest.of(0, 10, Sort.by(direction, normalizedSortBy));
-
         Page<Product> productPage = productService.searchProducts(criteria, pageable);
-
         List<ProductResponse> topProducts = productPage.getContent()
                 .stream()
                 .map(productMapper::toResponse)
                 .collect(Collectors.toList());
-
         return ResponseEntity.ok(topProducts);
     }
 }

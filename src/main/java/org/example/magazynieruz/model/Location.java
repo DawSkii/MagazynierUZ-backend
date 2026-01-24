@@ -7,6 +7,10 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
+/**
+ * Entity representing a storage location within a warehouse.
+ * Each location has a unique code per warehouse and can store multiple products.
+ */
 @Entity
 @Table(name = "locations", schema = "magazynieruz", uniqueConstraints = {
         @UniqueConstraint(

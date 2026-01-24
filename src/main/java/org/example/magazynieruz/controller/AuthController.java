@@ -18,6 +18,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * REST controller for user authentication and registration.
+ * Handles user registration and JWT-based authentication.
+ */
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
@@ -27,6 +31,12 @@ public class AuthController {
     private final UserService userService;
     private final JwtService jwtService;
 
+    /**
+     * Registers a new user in the system.
+     *
+     * @param registerRequest the user registration details
+     * @return ResponseEntity indicating successful registration
+     */
     @PostMapping("/register")
     @Operation(summary = "Register a new user", description = "Creates a new user account")
     @ApiResponses(value = {
@@ -39,6 +49,12 @@ public class AuthController {
         return ResponseEntity.ok().build();
     }
 
+    /**
+     * Authenticates a user and generates a JWT token.
+     *
+     * @param loginRequest the user login credentials
+     * @return ResponseEntity containing JWT token
+     */
     @PostMapping("/login")
     @Operation(summary = "Authenticate user", description = "Authenticates user credentials and returns JWT token")
     @ApiResponses(value = {
@@ -48,7 +64,6 @@ public class AuthController {
     public ResponseEntity<LoginResponse> authenticateUser(
             @Parameter(description = "User login credentials", required = true) @RequestBody LoginRequest loginRequest) {
         User userDetails = userService.authenticate(loginRequest);
-
         return ResponseEntity.ok(new LoginResponse(jwtService.generateToken(userDetails)));
     }
 
