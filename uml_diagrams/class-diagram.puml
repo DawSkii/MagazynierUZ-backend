@@ -1,0 +1,301 @@
+@startuml
+!theme plain
+skinparam linetype ortho
+
+' Domain Model Entities
+package "Domain Model" <<Rectangle>> {
+  
+  class User {
+    - Long userId
+    - String username
+    - String password
+    - LocalDateTime createdAt
+    - LocalDateTime updatedAt
+    - LocalDateTime lastLogin
+    --
+    + getAuthorities(): Collection<GrantedAuthority>
+    + isAccountNonExpired(): boolean
+    + isAccountNonLocked(): boolean
+    + isCredentialsNonExpired(): boolean
+    + isEnabled(): boolean
+  }
+  
+  class Role {
+    - Long id
+    - String name
+  }
+  
+  class Organisation {
+    - Long id
+    - String name
+    - String TIN
+  }
+  
+  class Warehouse {
+    - Long id
+    - String warehouseCode
+    - String warehouseName
+    - String description
+    - Boolean isActive
+    - LocalDateTime createdAt
+    - LocalDateTime updatedAt
+  }
+  
+  class StructuredAddress <<Embeddable>> {
+    - String street
+    - String houseNumber
+    - String apartmentNumber
+    - String postcode
+    - String city
+    - String countryCode
+    - String region
+    - Double latitude
+    - Double longitude
+  }
+  
+  class Location {
+    - Long id
+    - String locationCode
+    - String zoneName
+    - LocationType locationType
+    - Boolean isActive
+    - Boolean isLocked
+    - LocalDateTime createdAt
+    - LocalDateTime updatedAt
+  }
+  
+  enum LocationType {
+    PICKING
+    BULK
+    RECEIVING
+    SHIPPING
+    RETURNS
+  }
+  
+  class Product {
+    - Long productId
+    - String name
+    - String description
+    - BigDecimal price
+    - Integer quantity
+    - LocalDateTime createdAt
+    - LocalDateTime updatedAt
+  }
+}
+
+' Relationships between domain entities
+User "*" -- "*" Role : has roles >
+User "*" -- "1" Organisation : belongs to >
+Organisation "1" -- "*" Warehouse : owns >
+Warehouse "1" *-- "1" StructuredAddress : embeds >
+Warehouse "1" -- "*" Location : contains >
+Location "1" -- "*" Product : stores >
+Location -- LocationType : uses type >
+
+interface UserDetails {
+  + getAuthorities()
+  + getPassword()
+  + getUsername()
+  + isAccountNonExpired()
+  + isAccountNonLocked()
+  + isCredentialsNonExpired()
+  + isEnabled()
+}
+
+User ..|> UserDetails : implements
+
+' Service Layer
+package "Service Layer" <<Rectangle>> {
+  
+  class ProductService {
+    - ProductRepository productRepository
+    - ApplicationEventPublisher eventPublisher
+    --
+    + createProduct(request): ProductResponse
+    + updateProduct(id, request): ProductResponse
+    + patchProduct(id, request): ProductResponse
+    + searchProducts(criteria): List<ProductResponse>
+    + getTopProducts(locationId, limit): List<ProductResponse>
+    - publishQuantityChangedEvent(product, oldQty)
+  }
+  
+  class WarehouseService {
+    - WarehouseRepository warehouseRepository
+    --
+    + createWarehouse(request): WarehouseResponse
+    + getMyWarehouses(): List<WarehouseResponse>
+    + getWarehousesByOrganisationId(orgId): List<Warehouse>
+    + updateWarehouse(id, request): WarehouseResponse
+    + deleteWarehouse(id): void
+  }
+  
+  class LocationService {
+    - LocationRepository locationRepository
+    --
+    + createLocation(request): LocationResponse
+    + getLocationsInWarehouse(warehouseId): List<LocationResponse>
+    + getLocationsByWarehouseId(warehouseId): List<Location>
+    + updateLocation(id, request): LocationResponse
+    + deleteLocation(id): void
+  }
+  
+  class UserService {
+    - UserRepository userRepository
+    - PasswordEncoder passwordEncoder
+    - JwtService jwtService
+    - AuthenticationManager authenticationManager
+    --
+    + createUser(request): User
+    + authenticate(request): LoginResponse
+    + findByUsername(username): User
+  }
+  
+  class JwtService {
+    - String secretKey
+    - long jwtExpiration
+    --
+    + generateToken(userDetails): String
+    + extractUsername(token): String
+    + isTokenValid(token, userDetails): boolean
+    + extractClaim(token, resolver): T
+    - extractAllClaims(token): Claims
+    - isTokenExpired(token): boolean
+  }
+  
+  class EmailAlertService {
+    - JavaMailSender mailSender
+    - String fromEmail
+    --
+    + sendLowStockAlert(event): void <<@Async>>
+    - buildEmailContent(event): String
+  }
+  
+  class LowStockDetectionService {
+    - int lowStockThreshold
+    --
+    + isLowStock(quantity): boolean
+  }
+  
+  class InventoryExportService {
+    - WarehouseService warehouseService
+    - LocationService locationService
+    - ProductService productService
+    --
+    + getInventoryData(request, orgId): InventoryExportData
+    - aggregateProductsByScope(request, orgId): List<ProductInventoryData>
+  }
+  
+  class PdfGenerationService {
+    --
+    + generateInventoryPdf(data): byte[]
+    - createPdfDocument(data): Document
+    - addTableContent(table, products): void
+  }
+  
+  class OrganisationService {
+    - OrganisationRepository organisationRepository
+    --
+    + createOrganisation(request): OrganisationResponse
+    + getAllOrganisations(): List<OrganisationResponse>
+    + updateOrganisation(id, request): OrganisationResponse
+  }
+}
+
+' Event-Driven Components
+package "Event System" <<Rectangle>> {
+  
+  class ProductQuantityChangedEvent <<record>> {
+    + Long productId
+    + String productName
+    + Integer oldQuantity
+    + Integer newQuantity
+    + String locationName
+    + String warehouseName
+    + Long organisationId
+  }
+  
+  class LowStockAlertListener {
+    - LowStockDetectionService detectionService
+    - EmailAlertService emailAlertService
+    --
+    + handleProductQuantityChanged(event): void <<@EventListener>>
+    - shouldSendAlert(oldQty, newQty): boolean
+  }
+}
+
+' Security Components
+package "Security" <<Rectangle>> {
+  
+  class SecurityConfig {
+    - JwtAuthenticationFilter jwtAuthFilter
+    - UserDetailsService userDetailsService
+    --
+    + securityFilterChain(http): SecurityFilterChain
+    + authenticationProvider(): AuthenticationProvider
+    + authenticationManager(config): AuthenticationManager
+  }
+  
+  class JwtAuthenticationFilter {
+    - JwtService jwtService
+    - UserDetailsService userDetailsService
+    --
+    + doFilterInternal(request, response, chain): void
+    - extractToken(request): String
+  }
+  
+  class UserContext {
+    --
+    + getCurrentUserId(): Long <<static>>
+    + getCurrentOrganisationId(): Long <<static>>
+    - getAuthentication(): Authentication
+  }
+}
+
+' Dependencies between Service and Domain
+ProductService ..> Product : manages
+WarehouseService ..> Warehouse : manages
+LocationService ..> Location : manages
+UserService ..> User : manages
+OrganisationService ..> Organisation : manages
+
+' Event publishing and listening
+ProductService ..> ProductQuantityChangedEvent : publishes
+LowStockAlertListener ..> ProductQuantityChangedEvent : listens to
+LowStockAlertListener ..> LowStockDetectionService : uses
+LowStockAlertListener ..> EmailAlertService : uses
+
+' Export service dependencies
+InventoryExportService ..> WarehouseService : uses
+InventoryExportService ..> LocationService : uses
+InventoryExportService ..> ProductService : uses
+InventoryExportService ..> PdfGenerationService : uses
+
+' Security dependencies
+JwtAuthenticationFilter ..> JwtService : uses
+SecurityConfig ..> JwtAuthenticationFilter : uses
+UserService ..> JwtService : uses
+
+note top of ProductQuantityChangedEvent
+  Event published when product
+  quantity changes, triggering
+  asynchronous low stock detection
+end note
+
+note bottom of LowStockAlertListener
+  @EventListener processes events
+  asynchronously and conditionally
+  sends email alerts
+end note
+
+note right of UserContext
+  Thread-local utility for accessing
+  current user's organization context
+  ensuring multi-tenant isolation
+end note
+
+note left of StructuredAddress
+  Embedded value object
+  stored within Warehouse entity
+end note
+
+@enduml

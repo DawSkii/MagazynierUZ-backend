@@ -1,0 +1,105 @@
+@startuml
+!theme plain
+autonumber
+
+actor User
+participant "ProductController" as PC
+participant "ProductService" as PS
+participant "ApplicationEventPublisher" as AEP
+participant "ProductRepository" as PR
+participant "LowStockAlertListener" as LSAL
+participant "LowStockDetectionService" as LSDS
+participant "EmailAlertService" as EAS
+participant "JavaMailSender" as JMS
+
+User -> PC: PATCH /products/{id}\n(quantity update)
+activate PC
+
+PC -> PS: updateProduct(id, request)
+activate PS
+
+PS -> PR: findById(id)
+activate PR
+PR --> PS: Product (with oldQuantity)
+deactivate PR
+
+PS -> PS: Store oldQuantity
+PS -> PS: Update product fields\n(including new quantity)
+
+== Event Publishing ==
+PS -> AEP: publishEvent(\n  ProductQuantityChangedEvent)
+activate AEP
+note right of AEP
+  Event contains:
+  - productId
+  - productName
+  - oldQuantity
+  - newQuantity
+  - locationName
+  - warehouseName
+  - organisationId
+end note
+AEP --> PS: Event published
+deactivate AEP
+
+PS -> PR: save(product)
+activate PR
+PR --> PS: Updated product
+deactivate PR
+
+PS --> PC: ProductResponse
+deactivate PS
+
+PC --> User: 200 OK (ProductResponse)
+deactivate PC
+
+== Asynchronous Event Processing ==
+AEP -> LSAL: @EventListener\nhandleProductQuantityChanged(event)
+activate LSAL
+
+LSAL -> LSDS: isLowStock(oldQuantity)
+activate LSDS
+LSDS --> LSAL: wasOldLow (boolean)
+deactivate LSDS
+
+LSAL -> LSDS: isLowStock(newQuantity)
+activate LSDS
+LSDS --> LSAL: isNewLow (boolean)
+deactivate LSDS
+
+alt isNewLow AND (!wasOldLow OR newQuantity < oldQuantity)
+  LSAL -> EAS: sendLowStockAlert(event)\n[@Async]
+  activate EAS
+  
+  EAS -> EAS: Build email content\nwith product details
+  
+  EAS -> JMS: send(MimeMessage)
+  activate JMS
+  JMS --> EAS: Email sent
+  deactivate JMS
+  
+  EAS --> LSAL: Alert sent (async)
+  deactivate EAS
+end
+
+LSAL --> AEP: Event handling complete
+deactivate LSAL
+
+note right of LSAL
+  Alert Logic:
+  1. New stock is low AND
+  2. (Old stock was NOT low OR
+     New quantity < Old quantity)
+  
+  This prevents duplicate alerts
+  for already-low stock unless
+  quantity decreased further
+end note
+
+note right of EAS
+  Email sending is asynchronous
+  to avoid blocking the main
+  request thread
+end note
+
+@enduml

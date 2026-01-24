@@ -1,0 +1,165 @@
+@startuml
+!theme plain
+skinparam actorStyle awesome
+left to right direction
+
+' Define actors
+:User: as user
+:Admin: as admin
+:System: as system
+
+' Admin extends User
+admin -up-|> user
+
+' Rectangle for system boundary
+rectangle "MagazynierUZ Warehouse Management System" {
+  
+  ' Authentication Use Cases
+  package "Authentication" {
+    usecase "Register" as UC_Register
+    usecase "Login" as UC_Login
+    usecase "Get Current Role" as UC_GetRole
+  }
+  
+  ' Warehouse Management
+  package "Warehouse Management" {
+    usecase "Create Warehouse" as UC_CreateWarehouse
+    usecase "List Warehouses" as UC_ListWarehouses
+    usecase "View Warehouse" as UC_ViewWarehouse
+    usecase "Update Warehouse" as UC_UpdateWarehouse
+    usecase "Delete Warehouse" as UC_DeleteWarehouse
+  }
+  
+  ' Location Management
+  package "Location Management" {
+    usecase "Create Location" as UC_CreateLocation
+    usecase "List Locations" as UC_ListLocations
+    usecase "View Location" as UC_ViewLocation
+    usecase "Update Location" as UC_UpdateLocation
+    usecase "Delete Location" as UC_DeleteLocation
+  }
+  
+  ' Product Management
+  package "Product Management" {
+    usecase "Create Product" as UC_CreateProduct
+    usecase "List Products" as UC_ListProducts
+    usecase "View Product" as UC_ViewProduct
+    usecase "Update Product" as UC_UpdateProduct
+    usecase "Delete Product" as UC_DeleteProduct
+  }
+  
+  ' Product Search
+  package "Product Search" {
+    usecase "Search Products with Filters" as UC_SearchProducts
+    usecase "Get Top Products" as UC_TopProducts
+  }
+  
+  ' Inventory Export
+  package "Inventory Export" {
+    usecase "Export Organization to PDF" as UC_ExportOrg
+    usecase "Export Warehouse to PDF" as UC_ExportWarehouse
+    usecase "Export Location to PDF" as UC_ExportLocation
+  }
+  
+  ' Admin-Only Use Cases
+  package "Organization Management" #lightblue {
+    usecase "Create Organisation" as UC_CreateOrg
+    usecase "List Organisations" as UC_ListOrgs
+    usecase "View Organisation" as UC_ViewOrg
+    usecase "Update Organisation" as UC_UpdateOrg
+    usecase "Delete Organisation" as UC_DeleteOrg
+  }
+  
+  package "User Management" #lightblue {
+    usecase "Create User" as UC_CreateUser
+    usecase "List Users" as UC_ListUsers
+    usecase "View User" as UC_ViewUser
+    usecase "Update User" as UC_UpdateUser
+    usecase "Delete User" as UC_DeleteUser
+    usecase "Assign User to Organisation" as UC_AssignUser
+  }
+  
+  package "Cross-Organization Management" #lightblue {
+    usecase "Manage All Organizations Data" as UC_CrossOrgManagement
+  }
+  
+  ' System Automated Use Cases
+  package "Automated Processes" #lightgreen {
+    usecase "Detect Low Stock" as UC_DetectLowStock
+    usecase "Send Email Alert" as UC_SendEmail
+  }
+}
+
+' User connections - Authentication
+user --> UC_Register
+user --> UC_Login
+user --> UC_GetRole
+
+' User connections - Warehouse
+user --> UC_CreateWarehouse
+user --> UC_ListWarehouses
+user --> UC_ViewWarehouse
+user --> UC_UpdateWarehouse
+user --> UC_DeleteWarehouse
+
+' User connections - Location
+user --> UC_CreateLocation
+user --> UC_ListLocations
+user --> UC_ViewLocation
+user --> UC_UpdateLocation
+user --> UC_DeleteLocation
+
+' User connections - Product
+user --> UC_CreateProduct
+user --> UC_ListProducts
+user --> UC_ViewProduct
+user --> UC_UpdateProduct
+user --> UC_DeleteProduct
+
+' User connections - Search & Export
+user --> UC_SearchProducts
+user --> UC_TopProducts
+user --> UC_ExportOrg
+user --> UC_ExportWarehouse
+user --> UC_ExportLocation
+
+' Admin connections - Organization Management
+admin --> UC_CreateOrg
+admin --> UC_ListOrgs
+admin --> UC_ViewOrg
+admin --> UC_UpdateOrg
+admin --> UC_DeleteOrg
+
+' Admin connections - User Management
+admin --> UC_CreateUser
+admin --> UC_ListUsers
+admin --> UC_ViewUser
+admin --> UC_UpdateUser
+admin --> UC_DeleteUser
+admin --> UC_AssignUser
+
+' Admin connections - Cross-Org Management
+admin --> UC_CrossOrgManagement
+
+' System automated processes
+system --> UC_DetectLowStock
+system --> UC_SendEmail
+
+' Dependencies between automated processes
+UC_UpdateProduct ..> UC_DetectLowStock : <<triggers>>
+UC_DetectLowStock ..> UC_SendEmail : <<triggers>>
+
+note right of admin
+  Admin inherits all User 
+  permissions plus additional
+  cross-organization management
+  capabilities
+end note
+
+note bottom of UC_DetectLowStock
+  Automated process triggered
+  by ProductQuantityChangedEvent
+  when product is updated
+end note
+
+@enduml
