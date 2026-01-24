@@ -42,6 +42,7 @@ public class User implements UserDetails {
             inverseJoinColumns = @JoinColumn(name = "role_id"),
             schema = "magazynieruz")
     @Setter
+    @Getter
     private Set<Role> roles;
 
     @Setter
