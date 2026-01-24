@@ -1,5 +1,4 @@
 @startuml
-!theme plain
 skinparam linetype ortho
 
 ' Domain Model Entities

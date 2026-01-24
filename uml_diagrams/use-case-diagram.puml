@@ -1,5 +1,4 @@
 @startuml
-!theme plain
 skinparam actorStyle awesome
 left to right direction
 
